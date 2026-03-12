@@ -1,41 +1,21 @@
 import { Module, Global } from '@nestjs/common';
-import { ClientsModule, Transport } from '@nestjs/microservices';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { MongooseModule } from '@nestjs/mongoose';
+import { ConfigModule } from '@nestjs/config';
 import { RabbitmqService } from './rabbitmq.service';
 import { RabbitmqController } from './rabbitmq.controller';
-import {
-  POST_CREATE_QUEUE,
-  RABBITMQ_URI_KEY,
-  RABBITMQ_DEFAULT_URI,
-} from './rabbitmq.constants';
-import { Post, PostSchema } from '../schemas/post.schema';
-import { PostsService } from '../posts/posts.service';
+import { PostsModule } from '../posts/posts.module';
 
 /**
  * Global RabbitMQ module for Post Service.
  * Provides RabbitMQ service for consuming messages from queues.
+ * Queue connections are configured in main.ts via connectMicroservice().
  */
 @Global()
 @Module({
   imports: [
     ConfigModule,
-    MongooseModule.forFeature([{ name: Post.name, schema: PostSchema }]),
-    ClientsModule.register([
-      {
-        name: 'RABBITMQ_EVENTS',
-        transport: Transport.RMQ,
-        options: {
-          urls: [process.env[RABBITMQ_URI_KEY] || RABBITMQ_DEFAULT_URI],
-          queue: 'post.events',
-          queueOptions: {
-            durable: true,
-          },
-        },
-      },
-    ]),
+    PostsModule,
   ],
-  providers: [RabbitmqService, PostsService],
+  providers: [RabbitmqService],
   controllers: [RabbitmqController],
   exports: [RabbitmqService],
 })

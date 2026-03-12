@@ -1,13 +1,15 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Post, PostDocument } from '../schemas/post.schema';
 import { SearchPostsDto } from './dto/search-posts.dto';
 import { FilterPostsDto } from './dto/filter-posts.dto';
-import { PostCreateMessage } from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
+import { PostCreateMessage, PostComment } from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
 
 @Injectable()
 export class PostsService {
+  private readonly logger = new Logger(PostsService.name);
+
   constructor(@InjectModel(Post.name) private postModel: Model<PostDocument>) {}
 
   /**
@@ -37,6 +39,37 @@ export class PostsService {
     });
 
     return await post.save();
+  }
+
+  /**
+   * Update post with recentComments array from comment event.
+   * Called by RabbitmqController when consuming comment.created, comment.updated, or comment.deleted events.
+   * Simply stores the pre-computed recentComments array from the event payload.
+   *
+   * @param postId - The post ID to update
+   * @param recentComments - Array of recent comments (pre-computed by Comment Service)
+   */
+  async updatePostRecentComments(postId: string, recentComments: PostComment[]): Promise<void> {
+    // Validate postId
+    if (!this.isValidObjectId(postId)) {
+      throw new BadRequestException(`Invalid postId: ${postId}`);
+    }
+
+    // Update post with the recentComments array from event
+    const result = await this.postModel
+      .findOneAndUpdate(
+        { _id: postId, deleted: false },
+        { $set: { recentComments } },
+        { returnDocument: 'after' },
+      )
+      .exec();
+
+    if (!result) {
+      this.logger.warn(`Post not found or deleted: ${postId}. Skipping recentComments update.`);
+      return;
+    }
+
+    this.logger.log(`✅ Updated post ${postId} with ${recentComments.length} recent comments`);
   }
 
   async findAll(limit: number = 20, cursor?: string): Promise<{ posts: Post[]; nextCursor: string | null }> {

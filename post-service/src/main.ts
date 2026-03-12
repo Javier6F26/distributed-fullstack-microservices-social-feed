@@ -69,14 +69,14 @@ function setupDocumentation(app: INestApplication): void {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
   // HTTP server for REST API
   const port = process.env.PORT || 3002;
   await app.listen(port);
   Logger.log(`🚀 Application is running on: http://localhost:${port}`);
   Logger.log(`📄 OpenAPI Documentation: http://localhost:${port}/docs`);
 
-  // RabbitMQ microservice for consuming messages
+  // RabbitMQ microservice for consuming post creation messages
   const rabbitmqUri = process.env.RABBITMQ_URI || 'amqp://localhost:5672';
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.RMQ,
@@ -89,8 +89,42 @@ async function bootstrap() {
     },
   });
 
+  // RabbitMQ microservice for consuming comment events
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.RMQ,
+    options: {
+      urls: [rabbitmqUri],
+      queue: 'comment.created',
+      queueOptions: {
+        durable: true,
+      },
+    },
+  });
+
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.RMQ,
+    options: {
+      urls: [rabbitmqUri],
+      queue: 'comment.updated',
+      queueOptions: {
+        durable: true,
+      },
+    },
+  });
+
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.RMQ,
+    options: {
+      urls: [rabbitmqUri],
+      queue: 'comment.deleted',
+      queueOptions: {
+        durable: true,
+      },
+    },
+  });
+
   await app.startAllMicroservices();
-  Logger.log(`📬 RabbitMQ microservice started - listening on queue: post.create`);
+  Logger.log(`📬 RabbitMQ microservice started - listening on queues: post.create, comment.created, comment.updated, comment.deleted`);
 
   setupDocumentation(app);
 }

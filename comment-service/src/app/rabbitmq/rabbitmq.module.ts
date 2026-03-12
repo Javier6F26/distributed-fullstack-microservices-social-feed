@@ -37,17 +37,6 @@ import { Comment, CommentSchema } from '../schemas/comment.schema';
           },
         },
       },
-      {
-        name: 'RABBITMQ_EVENTS',
-        transport: Transport.RMQ,
-        options: {
-          urls: [process.env[RABBITMQ_URI_KEY] || RABBITMQ_DEFAULT_URI],
-          queue: 'comment.events',
-          queueOptions: {
-            durable: true,
-          },
-        },
-      },
     ]),
   ],
   providers: [RabbitmqService],

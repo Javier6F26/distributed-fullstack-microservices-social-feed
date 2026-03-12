@@ -246,18 +246,26 @@ export class AuthService {
 
   /**
    * Set refresh token as HttpOnly cookie
+   * @param response - Express response object
+   * @param refreshToken - The refresh token to set
+   * @param rememberMe - If false, creates a session-only cookie (no maxAge, expires on browser close)
    */
-  setRefreshTokenCookie(response: Response, refreshToken: string) {
+  setRefreshTokenCookie(response: Response, refreshToken: string, rememberMe: boolean = true) {
     const isProduction = process.env.NODE_ENV === 'production';
-    const cookieMaxAge = parseInt(process.env.JWT_REFRESH_EXPIRES_IN) || 7 * 24 * 60 * 60 * 1000; // Default 7 days
-
-    response.cookie('refreshToken', refreshToken, {
+    const cookieOptions: any = {
       httpOnly: true,
       secure: isProduction, // Only send over HTTPS in production
       sameSite: 'strict',
-      maxAge: cookieMaxAge,
       path: '/',
-    });
+    };
+
+    // When rememberMe is true, set expiry to 7 days
+    // When rememberMe is false, omit maxAge to create session-only cookie (expires on browser close)
+    if (rememberMe) {
+      cookieOptions.maxAge = parseInt(process.env.JWT_REFRESH_EXPIRES_IN) || 7 * 24 * 60 * 60 * 1000; // Default 7 days
+    }
+
+    response.cookie('refreshToken', refreshToken, cookieOptions);
   }
 
   /**

@@ -1,11 +1,21 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { PostsService } from '../posts/posts.service';
-import { PostCreateMessage } from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
-import { POST_CREATE_QUEUE } from './rabbitmq.constants';
+import {
+  PostCreateMessage,
+  CommentCreatedEvent,
+  CommentUpdatedEvent,
+  CommentDeletedEvent,
+} from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
+import {
+  POST_CREATE_QUEUE,
+  COMMENT_CREATED_EVENT,
+  COMMENT_UPDATED_EVENT,
+  COMMENT_DELETED_EVENT,
+} from './rabbitmq.constants';
 
 /**
- * RabbitMQ Controller for consuming post creation messages.
+ * RabbitMQ Controller for consuming post creation messages and comment events.
  */
 @Controller()
 export class RabbitmqController {
@@ -36,6 +46,57 @@ export class RabbitmqController {
       // Log error
       console.error('Failed to process post creation:', (error as Error).message);
       throw error; // Let NestJS handle the error
+    }
+  }
+
+  /**
+   * Handle comment.created events from RabbitMQ.
+   * Updates the post with the full recentComments array from the event.
+   *
+   * @param event - CommentCreatedEvent payload
+   */
+  @MessagePattern(COMMENT_CREATED_EVENT)
+  async handleCommentCreated(@Payload() event: CommentCreatedEvent) {
+    try {
+      await this.postsService.updatePostRecentComments(event.postId, event.recentComments);
+      return { success: true, commentId: event.commentId };
+    } catch (error) {
+      console.error('Failed to process comment.created event:', (error as Error).message);
+      throw error; // Let NestJS handle nack to DLQ
+    }
+  }
+
+  /**
+   * Handle comment.updated events from RabbitMQ.
+   * Updates the post with the updated recentComments array from the event.
+   *
+   * @param event - CommentUpdatedEvent payload
+   */
+  @MessagePattern(COMMENT_UPDATED_EVENT)
+  async handleCommentUpdated(@Payload() event: CommentUpdatedEvent) {
+    try {
+      await this.postsService.updatePostRecentComments(event.postId, event.recentComments);
+      return { success: true, commentId: event.commentId };
+    } catch (error) {
+      console.error('Failed to process comment.updated event:', (error as Error).message);
+      throw error; // Let NestJS handle nack to DLQ
+    }
+  }
+
+  /**
+   * Handle comment.deleted events from RabbitMQ.
+   * Updates the post with the updated recentComments array (after deletion).
+   *
+   * @param event - CommentDeletedEvent payload
+   */
+  @MessagePattern(COMMENT_DELETED_EVENT)
+  async handleCommentDeleted(@Payload() event: CommentDeletedEvent) {
+    try {
+      await this.postsService.updatePostRecentComments(event.postId, event.recentComments);
+      return { success: true, commentId: event.commentId };
+    } catch (error) {
+      console.error('Failed to process comment.deleted event:', (error as Error).message);
+      throw error; // Let NestJS handle nack to DLQ
     }
   }
 }

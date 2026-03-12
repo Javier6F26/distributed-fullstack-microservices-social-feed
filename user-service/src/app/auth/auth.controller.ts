@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Res, UseGuards, Req, HttpCode, HttpStatus, Inject, forwardRef, UseInterceptors, ApplyDecorators } from '@nestjs/common';
+import { Controller, Post, Body, Res, UseGuards, Req, HttpCode, HttpStatus, Inject, forwardRef, UseInterceptors, ApplyDecorators, Logger } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterUserDto } from './dto/register-user.dto';
@@ -9,6 +9,8 @@ import { Throttle } from '@nestjs/throttler';
 
 @Controller('auth')
 export class AuthController {
+  private readonly logger = new Logger(AuthController.name);
+
   constructor(
     private authService: AuthService,
     @Inject(forwardRef(() => RefreshTokenService))
@@ -24,8 +26,8 @@ export class AuthController {
   async register(@Body() registerUserDto: RegisterUserDto, @Res({ passthrough: true }) response: Response) {
     const result = await this.authService.register(registerUserDto);
 
-    // Set refresh token as HttpOnly cookie
-    this.authService.setRefreshTokenCookie(response, result.refreshToken);
+    // Set refresh token as HttpOnly cookie (default to rememberMe=true for registration)
+    this.authService.setRefreshTokenCookie(response, result.refreshToken, true);
 
     // Remove refreshToken from response body and return plain object (let NestJS handle serialization)
     const { refreshToken, ...responseData } = result;
@@ -43,8 +45,11 @@ export class AuthController {
     const clientIp = request.ip || request.socket.remoteAddress || undefined;
     const result = await this.authService.login(loginUserDto, clientIp);
 
-    // Set refresh token as HttpOnly cookie
-    this.authService.setRefreshTokenCookie(response, result.refreshToken);
+    // Set refresh token as HttpOnly cookie based on rememberMe flag
+    // When rememberMe is false, cookie expires when browser closes
+    // When rememberMe is true, cookie persists for 7 days
+    const rememberMe = loginUserDto.rememberMe ?? true; // Default to true if not provided
+    this.authService.setRefreshTokenCookie(response, result.refreshToken, rememberMe);
 
     // Remove refreshToken from response body and return plain object (let NestJS handle serialization)
     const { refreshToken, ...responseData } = result;
@@ -66,6 +71,7 @@ export class AuthController {
     const refreshToken = request.cookies?.refreshToken;
 
     if (!refreshToken) {
+      this.logger.warn('[Refresh] Refresh token not found in cookie');
       return {
         success: false,
         message: 'Refresh token not found',
@@ -77,6 +83,7 @@ export class AuthController {
       const validation = await this.refreshTokenService.validateRefreshToken(refreshToken, clientIp);
 
       if (!validation.isValid) {
+        this.logger.warn(`[Refresh] Invalid/expired token - reason: ${validation.reason}`);
         this.authService.clearRefreshTokenCookie(response);
         return {
           success: false,
@@ -94,6 +101,8 @@ export class AuthController {
       // Set new refresh token as HttpOnly cookie
       this.authService.setRefreshTokenCookie(response, newTokens.refreshToken);
 
+      this.logger.log(`[Refresh] Success - user: ${userId}, IP: ${clientIp || 'unknown'}`);
+
       return {
         success: true,
         accessToken,
@@ -101,6 +110,7 @@ export class AuthController {
         expiresIn: parseInt(process.env.JWT_ACCESS_EXPIRES_IN || '15m') * 60,
       };
     } catch (error: any) {
+      this.logger.error(`[Refresh] Failed - error: ${error.message}`);
       this.authService.clearRefreshTokenCookie(response);
       return {
         success: false,

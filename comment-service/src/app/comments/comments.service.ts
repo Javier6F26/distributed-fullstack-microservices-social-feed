@@ -1,12 +1,18 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Comment, CommentDocument } from '../schemas/comment.schema';
-import { CommentCreateMessage } from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
+import { CommentCreateMessage, PostComment } from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
+import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
 
 @Injectable()
 export class CommentsService {
-  constructor(@InjectModel(Comment.name) private commentModel: Model<CommentDocument>) {}
+  private readonly logger = new Logger(CommentsService.name);
+
+  constructor(
+    @InjectModel(Comment.name) private commentModel: Model<CommentDocument>,
+    private readonly rabbitmqService: RabbitmqService,
+  ) {}
 
   /**
    * Create comment from RabbitMQ queue message.
@@ -16,8 +22,13 @@ export class CommentsService {
    * @returns Created comment document
    */
   async createCommentFromQueue(message: CommentCreateMessage): Promise<CommentDocument> {
+    // Convert postId to ObjectId if it's a valid ObjectId string
+    const postIdObj = Types.ObjectId.isValid(message.postId) 
+      ? new Types.ObjectId(message.postId) 
+      : message.postId;
+    
     const comment = new this.commentModel({
-      postId: message.postId,
+      postId: postIdObj,
       authorId: message.authorId,
       name: message.name,
       email: message.email,
@@ -25,7 +36,105 @@ export class CommentsService {
       createdAt: message.createdAt || new Date(),
     });
 
-    return await comment.save();
+    const savedComment = await comment.save();
+
+    // Fetch top 10 recent comments and emit event
+    const recentComments = await this.fetchRecentComments(message.postId, 10);
+    await this.rabbitmqService.emitCommentCreated(
+      message.postId,
+      savedComment._id.toString(),
+      recentComments,
+    );
+
+    return savedComment;
+  }
+
+  /**
+   * Update comment by ID.
+   *
+   * @param commentId - The comment ID to update
+   * @param updates - The updates to apply
+   * @returns Updated comment document
+   */
+  async updateComment(commentId: string, updates: { body?: string }): Promise<CommentDocument> {
+    const updatedComment = await this.commentModel
+      .findByIdAndUpdate(
+        commentId,
+        { ...updates, updatedAt: new Date() },
+        { new: true },
+      )
+      .exec();
+
+    if (!updatedComment) {
+      throw new NotFoundException(`Comment ${commentId} not found`);
+    }
+
+    // Fetch top 10 recent comments and emit event
+    const recentComments = await this.fetchRecentComments(updatedComment.postId.toString(), 10);
+    await this.rabbitmqService.emitCommentUpdated(
+      updatedComment.postId.toString(),
+      commentId,
+      recentComments,
+    );
+
+    return updatedComment;
+  }
+
+  /**
+   * Delete comment by ID.
+   *
+   * @param commentId - The comment ID to delete
+   * @returns Deleted comment document
+   */
+  async deleteComment(commentId: string): Promise<CommentDocument> {
+    const deletedComment = await this.commentModel
+      .findByIdAndDelete(commentId)
+      .exec();
+
+    if (!deletedComment) {
+      throw new NotFoundException(`Comment ${commentId} not found`);
+    }
+
+    // Fetch top 10 recent comments and emit event
+    const recentComments = await this.fetchRecentComments(deletedComment.postId.toString(), 10);
+    await this.rabbitmqService.emitCommentDeleted(
+      deletedComment.postId.toString(),
+      commentId,
+      recentComments,
+    );
+
+    return deletedComment;
+  }
+
+  /**
+   * Fetch top N recent comments for a post.
+   * Returns comments in newest-first order.
+   *
+   * @param postId - The post ID
+   * @param limit - Maximum number of comments to return
+   * @returns Array of PostComment objects for embedding in Post document
+   */
+  private async fetchRecentComments(postId: string, limit: number): Promise<PostComment[]> {
+    // Convert to ObjectId if valid
+    const queryId = Types.ObjectId.isValid(postId) 
+      ? new Types.ObjectId(postId) 
+      : postId;
+    
+    const comments = await this.commentModel
+      .find({ postId: queryId })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean()
+      .exec();
+
+    return comments.map((comment) => ({
+      _id: comment._id.toString(),
+      postId: comment.postId.toString(),
+      name: comment.name,
+      email: comment.email,
+      body: comment.body,
+      createdAt: comment.createdAt,
+    }));
   }
 
   /**

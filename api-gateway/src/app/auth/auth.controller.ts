@@ -112,14 +112,17 @@ export class AuthController {
             'Content-Type': 'application/json',
             Cookie: `refreshToken=${refreshToken}`,
           },
+          // Important: Do not set withCredentials here as we're the server
         }),
       );
 
-      // Forward cookies from user-service response
+      // CRITICAL: Forward cookies from user-service response to frontend
+      // This ensures Set-Cookie headers are properly passed through
       const cookies = result.headers['set-cookie'];
-      if (cookies) {
+      if (cookies && Array.isArray(cookies)) {
         cookies.forEach((cookie: string) => {
-          response.header('Set-Cookie', cookie);
+          // Forward the cookie exactly as received from user-service
+          response.append('Set-Cookie', cookie);
         });
       }
 

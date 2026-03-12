@@ -1,15 +1,10 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { ConfigService } from '@nestjs/config';
 import { ClientProxy, ClientProxyFactory, Transport } from '@nestjs/microservices';
 import {
-  POST_CREATE_QUEUE,
   RABBITMQ_URI_KEY,
   RABBITMQ_DEFAULT_URI,
-  POST_CREATE_QUEUE_OPTIONS,
 } from './rabbitmq.constants';
-import { Post, PostDocument } from '../schemas/post.schema';
 
 /**
  * RabbitMQ service for producing messages in Post Service.
@@ -20,10 +15,7 @@ export class RabbitmqService implements OnModuleInit {
   private readonly logger = new Logger(RabbitmqService.name);
   private client: ClientProxy;
 
-  constructor(
-    @InjectModel(Post.name) private postModel: Model<PostDocument>,
-    private readonly configService: ConfigService,
-  ) {}
+  constructor(private readonly configService: ConfigService) {}
 
   async onModuleInit() {
     const rabbitmqUri = this.configService.get<string>(RABBITMQ_URI_KEY) || RABBITMQ_DEFAULT_URI;
@@ -58,12 +50,5 @@ export class RabbitmqService implements OnModuleInit {
     } catch (error) {
       this.logger.error('Failed to emit post.created event:', error.message);
     }
-  }
-
-  /**
-   * Check if RabbitMQ client is connected.
-   */
-  isConnected(): boolean {
-    return this.client !== undefined;
   }
 }

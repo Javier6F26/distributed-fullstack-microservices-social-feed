@@ -94,3 +94,48 @@ export interface CommentResponse {
   }>;
   status?: number;
 }
+
+/**
+ * Comment data embedded in Post document.
+ */
+export interface PostComment {
+  _id: string;
+  postId: string;
+  name: string;
+  email: string;
+  body: string;
+  createdAt: Date | string;
+}
+
+/**
+ * Event payload for comment.created RabbitMQ event.
+ * Published by Comment Service after a comment is persisted.
+ * Contains the full list of top 10 recent comments for the post.
+ */
+export interface CommentCreatedEvent {
+  postId: string;
+  commentId: string;
+  recentComments: PostComment[];
+}
+
+/**
+ * Event payload for comment.updated RabbitMQ event.
+ * Published by Comment Service after a comment is updated.
+ * Contains the updated list of top 10 recent comments for the post.
+ */
+export interface CommentUpdatedEvent {
+  postId: string;
+  commentId: string;
+  recentComments: PostComment[];
+}
+
+/**
+ * Event payload for comment.deleted RabbitMQ event.
+ * Published by Comment Service after a comment is deleted.
+ * Contains the updated list of top 10 recent comments for the post.
+ */
+export interface CommentDeletedEvent {
+  postId: string;
+  commentId: string;
+  recentComments: PostComment[];
+}

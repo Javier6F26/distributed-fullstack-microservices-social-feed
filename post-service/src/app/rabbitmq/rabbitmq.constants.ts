@@ -6,6 +6,11 @@
 // Queue names (domain.action pattern)
 export const POST_CREATE_QUEUE = 'post.create';
 
+// Event names (domain.action pattern)
+export const COMMENT_CREATED_EVENT = 'comment.created';
+export const COMMENT_UPDATED_EVENT = 'comment.updated';
+export const COMMENT_DELETED_EVENT = 'comment.deleted';
+
 // Exchange names
 export const DEAD_LETTER_EXCHANGE = 'dlx';
 

@@ -1,5 +1,5 @@
-import { IsNotEmpty, IsString } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsNotEmpty, IsString, IsOptional, IsBoolean } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class LoginUserDto {
   @ApiProperty({
@@ -19,4 +19,14 @@ export class LoginUserDto {
   @IsNotEmpty()
   @IsString()
   password: string;
+
+  @ApiPropertyOptional({
+    description: 'Whether to remember the user session (7 days) or use session-only cookie',
+    example: true,
+    type: Boolean,
+    default: true,
+  })
+  @IsOptional()
+  @IsBoolean()
+  rememberMe?: boolean;
 }
