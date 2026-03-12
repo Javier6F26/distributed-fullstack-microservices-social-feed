@@ -1,0 +1,37 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compileOnSave": false,
+  "files": [],
+  "references": [
+    {
+      "path": "./api-gateway-e2e"
+    },
+    {
+      "path": "./api-gateway"
+    },
+    {
+      "path": "./user-service-e2e"
+    },
+    {
+      "path": "./user-service"
+    },
+    {
+      "path": "./post-service-e2e"
+    },
+    {
+      "path": "./post-service"
+    },
+    {
+      "path": "./comment-service-e2e"
+    },
+    {
+      "path": "./comment-service"
+    },
+    {
+      "path": "./shared-types"
+    },
+    {
+      "path": "./frontend"
+    }
+  ]
+}
