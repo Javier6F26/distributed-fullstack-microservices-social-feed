@@ -92,6 +92,26 @@ export class CommentListComponent implements OnChanges, OnInit {
   }
 
   /**
+   * Handle comment delete request (optimistic UI)
+   */
+  onCommentDeleted(commentId: string) {
+    // Optimistic removal - parent stores original for potential rollback
+    this.comments.update(comments =>
+      comments.filter(c => c._id !== commentId)
+    );
+  }
+
+  /**
+   * Handle comment delete failure (rollback)
+   */
+  onCommentDeleteFailed(event: { commentId: string; comment: Comment }) {
+    const { comment } = event;
+
+    // Rollback - restore the comment
+    this.comments.update(comments => [comment, ...comments]);
+  }
+
+  /**
    * Track by function for ngFor
    */
   trackByComment(index: number, comment: Comment): string {

@@ -1,9 +1,10 @@
-import { Component, inject, signal, EventEmitter, Output, OnInit } from '@angular/core';
+import { Component, inject, signal, EventEmitter, Output, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { PostService, Post } from '../../../services/post.service';
 import { NotificationService } from '../../../services/notification.service';
 import { AuthService } from '../../../services/auth.service';
+import { Subject } from 'rxjs';
 
 /**
  * Create Post Modal Component
@@ -12,8 +13,7 @@ import { AuthService } from '../../../services/auth.service';
  * - Reactive form with validation (title: 5-100 chars, body: 10-5000 chars)
  * - Real-time validation feedback
  * - Optimistic UI update
- * - Minimalist & Instantaneous theme styling
- * - Fade animations
+ * - Tailwind CSS styling
  */
 @Component({
   selector: 'app-create-post-modal',
@@ -22,11 +22,12 @@ import { AuthService } from '../../../services/auth.service';
   templateUrl: './create-post-modal.component.html',
   styleUrls: ['./create-post-modal.component.scss'],
 })
-export class CreatePostModalComponent implements OnInit {
+export class CreatePostModalComponent implements OnDestroy {
   private fb = inject(FormBuilder);
   private postService = inject(PostService);
   private notificationService = inject(NotificationService);
   private authService = inject(AuthService);
+  private destroy$ = new Subject<void>();
 
   @Output() postCreated = new EventEmitter<{ post: Post; tempId: string }>();
   @Output() postFailed = new EventEmitter<{ tempId: string }>();
@@ -39,7 +40,7 @@ export class CreatePostModalComponent implements OnInit {
   // Form
   postForm!: FormGroup;
 
-  ngOnInit(): void {
+  constructor() {
     this.initForm();
   }
 
@@ -89,9 +90,15 @@ export class CreatePostModalComponent implements OnInit {
 
   /**
    * Handle form submission with optimistic UI
+   * CRITICAL: Clear isSubmitting immediately after emit - message is enqueued
    */
   async onSubmit() {
     if (this.postForm.invalid || !this.authService.isAuthenticated()) {
+      return;
+    }
+
+    // Prevent double submission
+    if (this.isSubmitting()) {
       return;
     }
 
@@ -117,33 +124,50 @@ export class CreatePostModalComponent implements OnInit {
       // Emit optimistic post immediately for feed to display
       this.postCreated.emit({ post: optimisticPost as unknown as Post, tempId });
 
-      // Call post service to create post
-      const response = await this.postService.createPost(title, body).toPromise();
+      // CRITICAL: Clear loading state IMMEDIATELY - message is enqueued
+      // No need to wait for API response with optimistic UI
+      this.isSubmitting.set(false);
 
-      if (response?.success) {
-        // Show success notification
-        this.notificationService.success('Post created successfully!');
-      }
-
-      // Close modal
-      this.closeModal();
+      // Fire-and-forget API call - handle success/error in subscription
+      this.postService.createPost(title, body).subscribe({
+        next: (response) => {
+          if (response?.success) {
+            this.notificationService.success('Post published successfully!', 3000);
+            this.closeModal();
+          } else {
+            // Handle unexpected response
+            throw new Error('Unexpected response from server');
+          }
+        },
+        error: (error) => {
+          // Handle error - emit failure event for feed to remove optimistic post
+          this.postFailed.emit({ tempId });
+          const errorMessage = (error as { error?: { message?: string } })?.error?.message || 'Failed to create post. Please try again.';
+          this.notificationService.error(errorMessage);
+        },
+      });
     } catch (error) {
-      // Handle error - emit failure event for feed to remove optimistic post
+      // Handle synchronous errors
+      this.isSubmitting.set(false);
       this.postFailed.emit({ tempId });
-
-      // Show error notification
       const errorMessage = (error as { error?: { message?: string } })?.error?.message || 'Failed to create post. Please try again.';
       this.notificationService.error(errorMessage);
-    } finally {
-      this.isSubmitting.set(false);
     }
   }
 
   /**
-   * Close modal
+   * Close modal and cleanup
    */
   closeModal() {
     this.showModal.set(false);
     this.modalClosed.emit();
+  }
+
+  /**
+   * Cleanup subscriptions on destroy
+   */
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 }

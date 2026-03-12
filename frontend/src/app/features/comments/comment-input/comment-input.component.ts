@@ -1,4 +1,4 @@
-import { Component, inject, signal, EventEmitter, Output, Input, OnInit } from '@angular/core';
+import { Component, inject, signal, EventEmitter, Output, Input, OnInit, ElementRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { AuthService } from '../../../services/auth.service';
@@ -31,6 +31,9 @@ export class CommentInputComponent implements OnInit {
   @Output() commentSubmitted = new EventEmitter<{ comment: Comment; tempId: string }>();
   @Output() commentFailed = new EventEmitter<{ tempId: string; postId: string }>();
 
+  // Template reference
+  @ViewChild('commentTextarea') commentTextarea!: ElementRef<HTMLTextAreaElement>;
+
   // State
   isSubmitting = signal(false);
 
@@ -52,9 +55,23 @@ export class CommentInputComponent implements OnInit {
           Validators.required,
           Validators.minLength(1),
           Validators.maxLength(1000),
+          this.trimValidator, // Custom validator to prevent whitespace-only
         ],
       ],
     });
+  }
+
+  /**
+   * Custom validator to trim and check for empty value
+   */
+  private trimValidator(control: any) {
+    if (control.value && typeof control.value === 'string') {
+      const trimmed = control.value.trim();
+      if (trimmed.length === 0) {
+        return { 'whitespace': true };
+      }
+    }
+    return null;
   }
 
   /**
@@ -75,6 +92,7 @@ export class CommentInputComponent implements OnInit {
 
   /**
    * Handle form submission with optimistic UI and actual API call
+   * CRITICAL: Clear isSubmitting immediately after emit - message is enqueued
    */
   async onSubmit() {
     if (this.commentForm.invalid || !this.postId || !this.authService.isAuthenticated()) {
@@ -111,21 +129,22 @@ export class CommentInputComponent implements OnInit {
       // Emit optimistic comment immediately for parent to display
       this.commentSubmitted.emit({ comment: optimisticComment as unknown as Comment, tempId });
 
-      // Make actual API call to create comment
+      // CRITICAL: Clear loading state IMMEDIATELY - message is enqueued
+      // No need to wait for API response with optimistic UI
+      this.isSubmitting.set(false);
+
+      // Fire-and-forget API call - handle success/error in subscription
       this.commentService.createComment(this.postId, body).subscribe({
         next: (response) => {
           if (response.success && response.data) {
-            // Server confirmed - update with real data if needed
-            // The optimistic comment is already displayed, just mark as confirmed
             this.notificationService.success('Comment added successfully');
 
             // Clear input field on successful submission
             this.commentForm.reset();
 
-            // Reset textarea height
-            const textarea = document.querySelector('.comment-textarea') as HTMLTextAreaElement;
-            if (textarea) {
-              textarea.style.height = 'auto';
+            // Reset textarea height using ViewChild reference
+            if (this.commentTextarea) {
+              this.commentTextarea.nativeElement.style.height = 'auto';
             }
           } else {
             // API returned error response
@@ -137,9 +156,7 @@ export class CommentInputComponent implements OnInit {
           console.error('Comment creation failed:', error);
           this.handleApiError('Failed to post comment. Please try again.');
         },
-        complete: () => {
-          this.isSubmitting.set(false);
-        },
+        // No complete callback - state already cleared above
       });
     } catch (error) {
       // Handle synchronous error

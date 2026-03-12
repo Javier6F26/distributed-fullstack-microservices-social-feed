@@ -60,4 +60,15 @@ export class CommentService {
   removeOptimisticComment(comments: Comment[], tempId: string): Comment[] {
     return comments.filter(c => c.tempId !== tempId);
   }
+
+  /**
+   * Delete a comment by ID.
+   * Only the author can delete their own comment.
+   *
+   * @param commentId - Comment ID to delete
+   * @returns Observable<void> on success
+   */
+  deleteComment(commentId: string): Observable<void> {
+    return this.http.delete<void>(`${this.API_URL}/comments/${commentId}`);
+  }
 }

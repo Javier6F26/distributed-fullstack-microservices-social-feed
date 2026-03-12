@@ -1,16 +1,20 @@
-import { TestBed } from '@angular/core/testing';
+import { TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { AuthService } from './auth.service';
+import { NotificationService } from './notification.service';
+import { of, throwError, BehaviorSubject } from 'rxjs';
 
 describe('AuthService', () => {
   let service: AuthService;
+  let httpMock: HttpTestingController;
 
   const mockNotificationService = {
-    success: jasmine.createSpy('success'),
-    error: jasmine.createSpy('error'),
-    warning: jasmine.createSpy('warning'),
-    info: jasmine.createSpy('info'),
+    success: vi.fn(),
+    error: vi.fn(),
+    warning: vi.fn(),
+    info: vi.fn(),
+    show: vi.fn(),
   };
 
   beforeEach(() => {
@@ -24,6 +28,13 @@ describe('AuthService', () => {
     });
 
     service = TestBed.inject(AuthService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+    sessionStorage.clear();
+    vi.clearAllMocks();
   });
 
   it('should be created', () => {
@@ -37,7 +48,7 @@ describe('AuthService', () => {
       const newService = TestBed.inject(AuthService);
 
       // Assert
-      expect(newService.isAuthenticated()).toBeFalse();
+      expect(newService.isAuthenticated()).toBeFalsy();
       expect(newService.user()).toBeNull();
     });
 
@@ -50,7 +61,7 @@ describe('AuthService', () => {
       const newService = TestBed.inject(AuthService);
 
       // Assert
-      expect(newService.isAuthenticated()).toBeTrue();
+      expect(newService.isAuthenticated()).toBeTruthy();
       expect(newService.user()).toEqual({ _id: '1', username: 'testuser', email: 'test@example.com' });
     });
   });
@@ -64,7 +75,7 @@ describe('AuthService', () => {
 
     it('should set loading state during registration', () => {
       // Arrange
-      expect(service.loading()).toBeFalse();
+      expect(service.loading()).toBeFalsy();
 
       // The actual test would require mocking HttpClient
       // This is a placeholder for the full implementation
@@ -93,7 +104,7 @@ describe('AuthService', () => {
       const newService = TestBed.inject(AuthService);
 
       // Act & Assert
-      expect(newService.isAuthenticatedUser()).toBeFalse();
+      expect(newService.isAuthenticatedUser()).toBeFalsy();
     });
   });
 
@@ -111,7 +122,7 @@ describe('AuthService', () => {
   describe('getAuthHeaders', () => {
     it('should return headers with Authorization token when authenticated', () => {
       // Arrange - manually set token
-      (service as unknown as Record<string, any>).accessTokenSignal.set('test-token');
+      (service as unknown as Record<string, any>)['accessTokenSignal'].set('test-token');
 
       // Act
       const headers = service.getAuthHeaders();
@@ -123,7 +134,7 @@ describe('AuthService', () => {
 
     it('should return headers without Authorization when not authenticated', () => {
       // Arrange
-      (service as unknown as Record<string, any>).accessTokenSignal.set(null);
+      (service as unknown as Record<string, any>)['accessTokenSignal'].set(null);
 
       // Act
       const headers = service.getAuthHeaders();
@@ -145,11 +156,11 @@ describe('AuthService', () => {
       };
 
       // Act - access private method via any
-      (service as unknown as Record<string, any>).setAuthState(mockResponse);
+      (service as unknown as Record<string, any>)['setAuthState'](mockResponse);
 
       // Assert
       expect(service.user()).toEqual(mockResponse.user);
-      expect(service.isAuthenticated()).toBeTrue();
+      expect(service.isAuthenticated()).toBeTruthy();
       expect(service.getAccessToken()).toBe('test-token');
       expect(sessionStorage.getItem('access_token')).toBe('test-token');
     });
@@ -162,13 +173,159 @@ describe('AuthService', () => {
       sessionStorage.setItem('user', JSON.stringify({ _id: '1' }));
 
       // Act - access private method via any
-      (service as unknown as Record<string, any>).clearAuthState();
+      (service as unknown as Record<string, any>)['clearAuthState']();
 
       // Assert
       expect(service.user()).toBeNull();
-      expect(service.isAuthenticated()).toBeFalse();
+      expect(service.isAuthenticated()).toBeFalsy();
       expect(service.getAccessToken()).toBeNull();
       expect(sessionStorage.getItem('access_token')).toBeNull();
     });
+  });
+
+  describe('Token Expiration Error Handling', () => {
+    beforeEach(() => {
+      // Set up authenticated state
+      sessionStorage.setItem('access_token', 'test-token');
+      sessionStorage.setItem('user', JSON.stringify({ _id: '1', username: 'testuser', email: 'test@example.com' }));
+    });
+
+    it('should prevent concurrent refresh attempts', fakeAsync(() => {
+      // Arrange - trigger first refresh
+      let firstRefreshCompleted = false;
+      service.refreshToken().subscribe({
+        next: () => {
+          firstRefreshCompleted = true;
+        },
+        error: () => {
+          firstRefreshCompleted = true;
+        },
+      });
+
+      // Simulate HTTP response for refresh
+      const req = httpMock.expectOne('http://localhost:3000/api/v1/auth/refresh');
+      expect(req.request.method).toBe('POST');
+      expect(req.request.withCredentials).toBeTruthy();
+
+      // Act - try to trigger second refresh while first is pending
+      tick(100);
+      const isRefreshing = service.isRefreshing();
+
+      // Assert - should be refreshing
+      expect(isRefreshing).toBeTruthy();
+
+      // Complete first refresh
+      req.flush({ success: true, accessToken: 'new-token', expiresIn: 900 });
+      tick(100);
+
+      // Should not be refreshing anymore
+      expect(service.isRefreshing()).toBeFalsy();
+      expect(firstRefreshCompleted).toBeTruthy();
+    }));
+
+    it('should handle refresh failure gracefully without infinite loop', fakeAsync(() => {
+      // Arrange
+      const errorResponse = { status: 401, message: 'Refresh token expired' };
+
+      // Act - trigger refresh that will fail
+      service.refreshToken().subscribe({
+        error: () => {
+          // Expected to error
+        },
+      });
+
+      // Simulate HTTP error
+      const req = httpMock.expectOne('http://localhost:3000/api/v1/auth/refresh');
+      req.flush(errorResponse, { status: 401, statusText: 'Unauthorized' });
+      tick(100);
+
+      // Assert - should clear refreshing state
+      expect(service.isRefreshing()).toBeFalsy();
+      expect(service.isAuthenticated()).toBeFalsy();
+      expect(service.getAccessToken()).toBeNull();
+
+      // Assert - notification shown once
+      expect(mockNotificationService.error).toHaveBeenCalledTimes(1);
+      expect(mockNotificationService.error).toHaveBeenCalledWith(
+        'Your session has expired. Please log in again.',
+        expect.any(Number)
+      );
+    }));
+
+    it('should clear auth state on refresh failure', fakeAsync(() => {
+      // Arrange - ensure we have auth state
+      expect(service.isAuthenticated()).toBeTruthy();
+      expect(service.getAccessToken()).toBe('test-token');
+
+      // Act - trigger refresh that fails
+      service.refreshToken().subscribe({
+        error: () => {
+          // Expected
+        },
+      });
+
+      const req = httpMock.expectOne('http://localhost:3000/api/v1/auth/refresh');
+      req.flush({ success: false }, { status: 401, statusText: 'Unauthorized' });
+      tick(100);
+
+      // Assert - auth state cleared
+      expect(service.isAuthenticated()).toBeFalsy();
+      expect(service.user()).toBeNull();
+      expect(service.getAccessToken()).toBeNull();
+      expect(sessionStorage.getItem('access_token')).toBeNull();
+    }));
+
+    it('should not trigger multiple refresh attempts in rapid succession', fakeAsync(() => {
+      // Arrange
+      let refreshCallCount = 0;
+
+      // Act - attempt multiple rapid refreshes
+      const sub1 = service.refreshToken().subscribe({ error: () => {} });
+      const sub2 = service.refreshToken().subscribe({ error: () => {} });
+      const sub3 = service.refreshToken().subscribe({ error: () => {} });
+
+      // Should only have one HTTP request
+      const req = httpMock.expectOne('http://localhost:3000/api/v1/auth/refresh');
+      refreshCallCount = 1;
+
+      // Fail the refresh
+      req.flush({ success: false }, { status: 401, statusText: 'Unauthorized' });
+      tick(100);
+
+      // Clean up subscriptions
+      sub1.unsubscribe();
+      sub2.unsubscribe();
+      sub3.unsubscribe();
+
+      // Assert - only one refresh attempt made
+      expect(refreshCallCount).toBe(1);
+      expect(service.isRefreshing()).toBeFalsy();
+    }));
+
+    it('should successfully refresh token and update state', fakeAsync(() => {
+      // Arrange
+      const newToken = 'new-valid-token';
+      const mockResponse = {
+        success: true,
+        accessToken: newToken,
+        tokenType: 'Bearer',
+        expiresIn: 900,
+      };
+
+      // Act
+      service.refreshToken().subscribe((response) => {
+        expect(response.accessToken).toBe(newToken);
+      });
+
+      // Simulate successful HTTP response
+      const req = httpMock.expectOne('http://localhost:3000/api/v1/auth/refresh');
+      req.flush(mockResponse);
+      tick(100);
+
+      // Assert
+      expect(service.getAccessToken()).toBe(newToken);
+      expect(service.isRefreshing()).toBeFalsy();
+      expect(sessionStorage.getItem('access_token')).toBe(newToken);
+    }));
   });
 });

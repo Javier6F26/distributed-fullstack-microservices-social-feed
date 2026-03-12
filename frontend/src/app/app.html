@@ -5,7 +5,7 @@
 </main>
 
 <!-- Auth Modal -->
-@if (showAuthModal) {
+@if (showAuthModal()) {
   <app-auth-modal
     (closeModal)="onCloseAuthModal()"
     (authSuccess)="onAuthSuccess()"

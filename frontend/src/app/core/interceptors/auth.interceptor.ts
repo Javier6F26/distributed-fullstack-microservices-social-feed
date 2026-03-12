@@ -9,11 +9,13 @@ import {
 import { Observable, throwError, BehaviorSubject } from 'rxjs';
 import { catchError, filter, switchMap, take } from 'rxjs/operators';
 import { AuthService } from '../../services/auth.service';
+import { NotificationService } from '../../services/notification.service';
 import { Router } from '@angular/router';
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
   private authService = inject(AuthService);
+  private notificationService = inject(NotificationService);
   private router = inject(Router);
   private ngZone = inject(NgZone);
 
@@ -64,8 +66,10 @@ export class AuthInterceptor implements HttpInterceptor {
   }
 
   intercept(request: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
-    // Skip refresh endpoint to prevent infinite loop
-    if (request.url.includes('/auth/refresh')) {
+    // Skip auth endpoints to prevent infinite loops
+    // Login/register should handle their own errors, not trigger token refresh
+    const skipUrls = ['/auth/login', '/auth/register', '/auth/refresh'];
+    if (skipUrls.some(url => request.url.includes(url))) {
       return next.handle(request);
     }
 
@@ -78,6 +82,8 @@ export class AuthInterceptor implements HttpInterceptor {
     return next.handle(request).pipe(
       catchError((error: HttpErrorResponse) => {
         if (error.status === 401) {
+          // Log 401 error with request context for debugging
+          console.warn(`[AuthInterceptor] 401 Unauthorized - URL: ${request.url}, Method: ${request.method}`);
           // Token expired or invalid - attempt refresh
           return this.handle401Error(request, next);
         }
@@ -97,6 +103,7 @@ export class AuthInterceptor implements HttpInterceptor {
   private handle401Error(request: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
     if (this.isRefreshing) {
       // If already refreshing (in this tab or another), wait for the refresh to complete
+      console.log(`[AuthInterceptor] Refresh in progress, waiting - URL: ${request.url}`);
       return this.refreshTokenSubject.pipe(
         filter(isRefreshing => !isRefreshing),
         take(1),
@@ -104,9 +111,11 @@ export class AuthInterceptor implements HttpInterceptor {
           // After refresh, retry the original request with new token
           const newToken = this.authService.getAccessToken();
           if (newToken) {
+            console.log(`[AuthInterceptor] Retry request after refresh - URL: ${request.url}`);
             return next.handle(this.addToken(request, newToken));
           } else {
             // Refresh failed, logout user
+            console.warn('[AuthInterceptor] Refresh failed, proceeding to logout');
             return this.handleLogout();
           }
         })
@@ -116,6 +125,8 @@ export class AuthInterceptor implements HttpInterceptor {
       this.isRefreshing = true;
       this.refreshTokenSubject.next(false);
 
+      console.log(`[AuthInterceptor] Starting token refresh - triggered by: ${request.url}`);
+
       // Broadcast to other tabs that we're refreshing
       this.broadcastRefreshEvent('started');
 
@@ -124,15 +135,19 @@ export class AuthInterceptor implements HttpInterceptor {
           this.isRefreshing = false;
           this.refreshTokenSubject.next(true);
 
+          console.log(`[AuthInterceptor] Refresh completed successfully, retrying: ${request.url}`);
+
           // Broadcast to other tabs that refresh completed
           this.broadcastRefreshEvent('completed');
 
           // Retry the original request with new token
           return next.handle(this.addToken(request, response.accessToken));
         }),
-        catchError(() => {
+        catchError((error) => {
           this.isRefreshing = false;
           this.refreshTokenSubject.next(true);
+
+          console.error(`[AuthInterceptor] Refresh failed - error: ${error?.message || 'Unknown'}`);
 
           // Broadcast to other tabs that refresh failed
           this.broadcastRefreshEvent('failed');
@@ -145,9 +160,18 @@ export class AuthInterceptor implements HttpInterceptor {
   }
 
   private handleLogout(): Observable<never> {
-    // Clear auth state and redirect to login
+    // Log logout event for debugging
+    console.warn('[AuthInterceptor] Handling logout - session expired or refresh failed');
+
+    // Clear auth state first
     this.authService.logout().subscribe();
+
+    // Show notification and redirect
+    this.notificationService.error('Your session has expired. Please log in again.', 5000);
+    
+    // Navigate to login
     this.router.navigate(['/auth/login']).then();
+    
     return throwError(() => new HttpErrorResponse({ status: 401, statusText: 'Unauthorized' }));
   }
 }

@@ -17,10 +17,7 @@ export class NavbarComponent {
   @Output() loginClicked = new EventEmitter<void>();
 
   openLoginModal(): void {
-    console.log('[NavbarComponent] openLoginModal called');
-    console.log('[NavbarComponent] Emitting loginClicked event');
     this.loginClicked.emit();
-    console.log('[NavbarComponent] loginClicked event emitted');
   }
 
   onLogout(): void {

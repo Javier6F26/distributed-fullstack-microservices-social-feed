@@ -1,36 +1,64 @@
-<div class="modal-overlay" (click)="onClose()" (keydown.enter)="onClose()" (keydown.space)="onClose()" tabindex="0" role="button" aria-label="Close modal">
-  <div class="modal-container" (click)="onModalClick($event)" (keydown.enter)="onClose()" (keydown.space)="onClose()" tabindex="0" role="button" aria-label="Close modal">
+<!-- Modal Overlay -->
+<div 
+  class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in"
+  (click)="onClose()"
+  tabindex="-1"
+  aria-label="Close modal"
+>
+  <!-- Modal Container -->
+  <div 
+    class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden relative animate-slide-up"
+    (click)="$event.stopPropagation()"
+    (keydown)="$event.stopPropagation()"
+    tabindex="0"
+    role="dialog"
+    aria-label="Authentication modal"
+  >
     <!-- Close Button -->
-    <button class="close-btn" (click)="onClose()" (keydown.enter)="onClose()" (keydown.space)="onClose()" aria-label="Close modal">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <button 
+      class="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors z-10"
+      (click)="onClose()"
+      (keydown.enter)="onClose()"
+      (keydown.space)="onClose()"
+      aria-label="Close modal"
+    >
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
     </button>
 
     <!-- Tab Navigation -->
-    <div class="tab-navigation">
+    <div class="flex border-b border-gray-200">
       <button
-        class="tab-btn"
-        [class.active]="activeTab() === 'login'"
+        class="flex-1 py-4 text-sm font-semibold transition-colors relative"
+        [class.text-purple-600]="activeTab() === 'login'"
+        [class.text-gray-500]="activeTab() !== 'login'"
         (click)="switchToLogin()"
         (keydown.enter)="switchToLogin()"
         (keydown.space)="switchToLogin()"
       >
         Sign In
+        @if (activeTab() === 'login') {
+          <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600"></span>
+        }
       </button>
       <button
-        class="tab-btn"
-        [class.active]="activeTab() === 'register'"
+        class="flex-1 py-4 text-sm font-semibold transition-colors relative"
+        [class.text-purple-600]="activeTab() === 'register'"
+        [class.text-gray-500]="activeTab() !== 'register'"
         (click)="switchToRegister()"
         (keydown.enter)="switchToRegister()"
         (keydown.space)="switchToRegister()"
       >
         Create Account
+        @if (activeTab() === 'register') {
+          <span class="absolute bottom-0 left-0 right-0 h-0.5 bg-purple-600"></span>
+        }
       </button>
     </div>
 
     <!-- Tab Content -->
-    <div class="tab-content">
+    <div class="p-6">
       @if (activeTab() === 'login') {
         <app-login-form
           (loginSuccess)="onLoginSuccess()"

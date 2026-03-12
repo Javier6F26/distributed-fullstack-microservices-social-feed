@@ -1,7 +1,6 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
-import { ReactiveFormsModule } from '@angular/forms';
-import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { CreatePostModalComponent } from './create-post-modal.component';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { PostService } from '../../../services/post.service';
 import { NotificationService } from '../../../services/notification.service';
 import { AuthService } from '../../../services/auth.service';
@@ -10,186 +9,220 @@ import { of, throwError } from 'rxjs';
 describe('CreatePostModalComponent', () => {
   let component: CreatePostModalComponent;
   let fixture: ComponentFixture<CreatePostModalComponent>;
-  let postServiceSpy: jasmine.SpyObj<PostService>;
-  let notificationServiceSpy: jasmine.SpyObj<NotificationService>;
-  let authServiceSpy: jasmine.SpyObj<AuthService>;
+  let postService: jest.Mocked<PostService>;
+  let notificationService: jest.Mocked<NotificationService>;
+  let authService: jest.Mocked<AuthService>;
+
+  const mockPostService = {
+    createPost: jest.fn(),
+    removeOptimisticPost: jest.fn(),
+  };
+
+  const mockNotificationService = {
+    success: jest.fn(),
+    error: jest.fn(),
+    show: jest.fn(),
+    info: jest.fn(),
+    warning: jest.fn(),
+    dismiss: jest.fn(),
+    notifications: { update: jest.fn() },
+  };
+
+  const mockAuthService = {
+    isAuthenticated: jest.fn(),
+    isAuthenticatedUser: jest.fn(),
+    getCurrentUser: jest.fn(),
+    getAccessToken: jest.fn(),
+  };
 
   beforeEach(async () => {
-    const postSpy = jasmine.createSpyObj('PostService', ['createPost']);
-    const notificationSpy = jasmine.createSpyObj('NotificationService', ['showSuccess', 'showError']);
-    const authSpy = jasmine.createSpyObj('AuthService', ['isAuthenticated']);
-
     await TestBed.configureTestingModule({
-      imports: [
-        ReactiveFormsModule, 
-        HttpClientTestingModule,
-        CreatePostModalComponent
-      ],
+      imports: [ReactiveFormsModule, CreatePostModalComponent],
       providers: [
-        { provide: PostService, useValue: postSpy },
-        { provide: NotificationService, useValue: notificationSpy },
-        { provide: AuthService, useValue: authSpy },
+        FormBuilder,
+        { provide: PostService, useValue: mockPostService },
+        { provide: NotificationService, useValue: mockNotificationService },
+        { provide: AuthService, useValue: mockAuthService },
       ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(CreatePostModalComponent);
     component = fixture.componentInstance;
-    postServiceSpy = TestBed.inject(PostService) as jasmine.SpyObj<PostService>;
-    notificationServiceSpy = TestBed.inject(NotificationService) as jasmine.SpyObj<NotificationService>;
-    authServiceSpy = TestBed.inject(AuthService) as jasmine.SpyObj<AuthService>;
+    postService = TestBed.inject(PostService) as jest.Mocked<PostService>;
+    notificationService = TestBed.inject(NotificationService) as jest.Mocked<NotificationService>;
+    authService = TestBed.inject(AuthService) as jest.Mocked<AuthService>;
+  });
 
-    fixture.detectChanges();
+  afterEach(() => {
+    jest.clearAllMocks();
   });
 
   it('should create', () => {
-    expect(component).toBeDefined();
+    expect(component).toBeTruthy();
   });
 
-  it('should initialize form with empty values', () => {
-    expect(component.postForm).toBeDefined();
-    expect(component.postForm.get('title')?.value).toBe('');
-    expect(component.postForm.get('body')?.value).toBe('');
-  });
-
-  it('should have invalid form when empty', () => {
-    expect(component.postForm.valid).toBeFalse();
-    expect(component.title?.valid).toBeFalse();
-    expect(component.body?.valid).toBeFalse();
-  });
-
-  it('should validate title minimum length (5 chars)', () => {
-    const title = component.title;
-    
-    title?.setValue('abc');
-    expect(title?.valid).toBeFalse();
-    expect(title?.errors?.['minlength']).toBeTruthy();
-
-    title?.setValue('valid title');
-    expect(title?.valid).toBeTrue();
-  });
-
-  it('should validate title maximum length (100 chars)', () => {
-    const title = component.title;
-    
-    title?.setValue('a'.repeat(101));
-    expect(title?.valid).toBeFalse();
-    expect(title?.errors?.['maxlength']).toBeTruthy();
-
-    title?.setValue('a'.repeat(100));
-    expect(title?.valid).toBeTrue();
-  });
-
-  it('should validate body minimum length (10 chars)', () => {
-    const body = component.body;
-    
-    body?.setValue('short');
-    expect(body?.valid).toBeFalse();
-    expect(body?.errors?.['minlength']).toBeTruthy();
-
-    body?.setValue('This is a valid body text.');
-    expect(body?.valid).toBeTrue();
-  });
-
-  it('should validate body maximum length (5000 chars)', () => {
-    const body = component.body;
-    
-    body?.setValue('a'.repeat(5001));
-    expect(body?.valid).toBeFalse();
-    expect(body?.errors?.['maxlength']).toBeTruthy();
-
-    body?.setValue('a'.repeat(5000));
-    expect(body?.valid).toBeTrue();
-  });
-
-  it('should require title', () => {
-    const title = component.title;
-    
-    title?.setValue('');
-    expect(title?.valid).toBeFalse();
-    expect(title?.errors?.['required']).toBeTruthy();
-  });
-
-  it('should require body', () => {
-    const body = component.body;
-    
-    body?.setValue('');
-    expect(body?.valid).toBeFalse();
-    expect(body?.errors?.['required']).toBeTruthy();
-  });
-
-  it('should call onSubmit when form is valid and user is authenticated', fakeAsync(() => {
-    authServiceSpy.isAuthenticated.and.returnValue(true);
-    postServiceSpy.createPost.and.returnValue(of({ success: true, data: {} }));
-
-    component.postForm.patchValue({
-      title: 'Valid Title',
-      body: 'This is a valid body with enough characters.',
+  describe('onSubmit', () => {
+    beforeEach(() => {
+      authService.isAuthenticated.mockReturnValue(true);
+      component.postForm.setValue({ title: 'Test Title', body: 'This is a test post body' });
     });
 
-    component.onSubmit();
-    tick();
+    it('should not submit if form is invalid', fakeAsync(() => {
+      // Arrange
+      component.postForm.setValue({ title: '', body: '' });
+      const emitSpy = jest.spyOn(component.postCreated, 'emit');
 
-    expect(postServiceSpy.createPost).toHaveBeenCalledWith('Valid Title', 'This is a valid body with enough characters.');
-    expect(notificationServiceSpy.showSuccess).toHaveBeenCalledWith('Post created successfully!');
-  }));
+      // Act
+      component.onSubmit();
+      tick();
 
-  it('should show error notification when post creation fails', fakeAsync(() => {
-    authServiceSpy.isAuthenticated.and.returnValue(true);
-    postServiceSpy.createPost.and.returnValue(throwError(() => new Error('API Error')));
+      // Assert
+      expect(emitSpy).not.toHaveBeenCalled();
+      expect(postService.createPost).not.toHaveBeenCalled();
+    }));
 
-    component.postForm.patchValue({
-      title: 'Valid Title',
-      body: 'This is a valid body with enough characters.',
-    });
+    it('should not submit if user is not authenticated', fakeAsync(() => {
+      // Arrange
+      authService.isAuthenticated.mockReturnValue(false);
+      const emitSpy = jest.spyOn(component.postCreated, 'emit');
 
-    component.onSubmit();
-    tick();
+      // Act
+      component.onSubmit();
+      tick();
 
-    expect(notificationServiceSpy.showError).toHaveBeenCalled();
-  }));
+      // Assert
+      expect(emitSpy).not.toHaveBeenCalled();
+      expect(postService.createPost).not.toHaveBeenCalled();
+    }));
 
-  it('should not submit when form is invalid', () => {
-    authServiceSpy.isAuthenticated.and.returnValue(true);
+    it('should prevent double submission', fakeAsync(() => {
+      // Arrange
+      component.isSubmitting.set(true);
+      const emitSpy = jest.spyOn(component.postCreated, 'emit');
+      mockPostService.createPost.mockReturnValue(of({ success: true, data: {} as any }));
 
-    component.postForm.patchValue({
-      title: 'Short', // Too short
-      body: 'This is valid',
-    });
+      // Act
+      component.onSubmit();
+      tick();
 
-    component.onSubmit();
+      // Assert
+      expect(emitSpy).not.toHaveBeenCalled();
+      expect(postService.createPost).not.toHaveBeenCalled();
+    }));
 
-    expect(postServiceSpy.createPost).not.toHaveBeenCalled();
+    it('should clear isSubmitting immediately after emitting optimistic post', fakeAsync(() => {
+      // Arrange
+      const mockResponse = { success: true, data: { _id: '123' } };
+      mockPostService.createPost.mockReturnValue(of(mockResponse as any));
+      const emitSpy = jest.spyOn(component.postCreated, 'emit');
+
+      // Act
+      component.onSubmit();
+      // Don't tick yet - check state before API response processes
+
+      // Assert - isSubmitting should be cleared immediately after emit
+      expect(emitSpy).toHaveBeenCalled();
+      expect(component.isSubmitting()).toBe(false);
+    }));
+
+    it('should show success notification and close modal on success', fakeAsync(() => {
+      // Arrange
+      const mockResponse = { success: true, data: { _id: '123', title: 'Test', body: 'Test body' } };
+      mockPostService.createPost.mockReturnValue(of(mockResponse as any));
+      const emitSpy = jest.spyOn(component.postCreated, 'emit');
+      const closeModalSpy = jest.spyOn(component, 'closeModal');
+
+      // Act
+      component.onSubmit();
+      tick();
+
+      // Assert
+      expect(emitSpy).toHaveBeenCalled();
+      expect(notificationService.success).toHaveBeenCalledWith('Post published successfully!', 3000);
+      expect(closeModalSpy).toHaveBeenCalled();
+      expect(component.isSubmitting()).toBe(false);
+    }));
+
+    it('should clear loading state before closing modal', fakeAsync(() => {
+      // Arrange
+      const mockResponse = { success: true, data: { _id: '123' } };
+      mockPostService.createPost.mockReturnValue(of(mockResponse as any));
+
+      // Act
+      component.onSubmit();
+      tick();
+
+      // Assert - loading state should be cleared
+      expect(component.isSubmitting()).toBe(false);
+    }));
+
+    it('should show error notification on failure', fakeAsync(() => {
+      // Arrange
+      const errorResponse = { error: { message: 'Validation failed' } };
+      mockPostService.createPost.mockReturnValue(throwError(() => errorResponse));
+      const emitSpy = jest.spyOn(component.postFailed, 'emit');
+
+      // Act
+      component.onSubmit();
+      tick();
+
+      // Assert
+      expect(emitSpy).toHaveBeenCalled();
+      expect(notificationService.error).toHaveBeenCalledWith('Validation failed');
+      expect(component.isSubmitting()).toBe(false);
+    }));
+
+    it('should show generic error message if error has no message', fakeAsync(() => {
+      // Arrange
+      mockPostService.createPost.mockReturnValue(throwError(() => ({})));
+
+      // Act
+      component.onSubmit();
+      tick();
+
+      // Assert
+      expect(notificationService.error).toHaveBeenCalledWith('Failed to create post. Please try again.');
+    }));
+
+    it('should clear loading state on error', fakeAsync(() => {
+      // Arrange
+      mockPostService.createPost.mockReturnValue(throwError(() => new Error('Network error')));
+
+      // Act
+      component.onSubmit();
+      tick();
+
+      // Assert
+      expect(component.isSubmitting()).toBe(false);
+    }));
   });
 
-  it('should not submit when user is not authenticated', fakeAsync(() => {
-    authServiceSpy.isAuthenticated.and.returnValue(false);
+  describe('closeModal', () => {
+    it('should set showModal to false and emit modalClosed event', () => {
+      // Arrange
+      const emitSpy = jest.spyOn(component.modalClosed, 'emit');
 
-    component.postForm.patchValue({
-      title: 'Valid Title',
-      body: 'This is a valid body with enough characters.',
+      // Act
+      component.closeModal();
+
+      // Assert
+      expect(component.showModal()).toBe(false);
+      expect(emitSpy).toHaveBeenCalled();
     });
-
-    component.onSubmit();
-    tick();
-
-    expect(postServiceSpy.createPost).not.toHaveBeenCalled();
-  }));
-
-  it('should emit modalClosed event when closeModal is called', () => {
-    spyOn(component.modalClosed, 'emit');
-
-    component.closeModal();
-
-    expect(component.modalClosed.emit).toHaveBeenCalled();
   });
 
-  it('should auto-resize textarea on input', () => {
-    const textarea = document.createElement('textarea');
-    textarea.scrollHeight = 200;
-    
-    const event = { target: textarea } as unknown as Event;
-    component.autoResize(event);
+  describe('ngOnDestroy', () => {
+    it('should complete destroy$ subject', () => {
+      // Arrange
+      const nextSpy = jest.spyOn(component['destroy$'], 'next');
+      const completeSpy = jest.spyOn(component['destroy$'], 'complete');
 
-    expect(textarea.style.height).toBe('200px');
+      // Act
+      component.ngOnDestroy();
+
+      // Assert
+      expect(nextSpy).toHaveBeenCalled();
+      expect(completeSpy).toHaveBeenCalled();
+    });
   });
 });

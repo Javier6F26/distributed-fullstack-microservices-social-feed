@@ -1,81 +1,99 @@
 @if (showModal()) {
-  <div class="modal-overlay" (click)="closeModal()" (keydown.enter)="closeModal()" (keydown.space)="closeModal()" tabindex="0" role="button" aria-label="Close modal">
-    <div class="modal-content" (click)="$event.stopPropagation()" (keydown.enter)="closeModal()" (keydown.space)="closeModal()" tabindex="0" role="button" aria-label="Close modal">
+  <!-- Modal Overlay -->
+  <div 
+    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in"
+    (click)="closeModal()"
+    tabindex="-1"
+    aria-label="Close modal"
+  >
+    <!-- Modal Container -->
+    <div 
+      class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 overflow-hidden relative animate-slide-up"
+      (click)="$event.stopPropagation()"
+      (keydown)="$event.stopPropagation()"
+      tabindex="0"
+      role="dialog"
+      aria-label="Create post modal"
+    >
       <!-- Modal Header -->
-      <div class="modal-header">
-        <h2 class="modal-title">Create Post</h2>
-        <button class="modal-close" (click)="closeModal()" (keydown.enter)="closeModal()" (keydown.space)="closeModal()" aria-label="Close modal">
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="24" height="24">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+        <h2 class="text-xl font-bold text-gray-900">Create Post</h2>
+        <button 
+          class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          (click)="closeModal()"
+          aria-label="Close modal"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="20" height="20">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
 
       <!-- Modal Body -->
-      <div class="modal-body">
-        <form [formGroup]="postForm" (ngSubmit)="onSubmit()">
+      <div class="p-6">
+        <form [formGroup]="postForm" (ngSubmit)="onSubmit()" class="space-y-4">
           <!-- Title Field -->
-          <div class="form-group">
-            <label for="title" class="form-label">Title</label>
+          <div>
+            <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Title</label>
             <input
               id="title"
               type="text"
               formControlName="title"
-              class="form-input"
-              [class.error]="title?.invalid && title?.touched"
               placeholder="Enter post title"
               maxlength="100"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all placeholder-gray-400"
+              [class.border-red-500]="title?.invalid && title?.touched"
             />
             @if (title?.invalid && title?.touched) {
-              <div class="form-error">
+              <div class="text-red-500 text-xs mt-1">
                 @if (title?.errors?.['required']) {
-                  <small>Title is required</small>
+                  <span>Title is required</span>
                 }
                 @if (title?.errors?.['minlength']) {
-                  <small>Title must be at least 5 characters</small>
+                  <span>Title must be at least 5 characters</span>
                 }
                 @if (title?.errors?.['maxlength']) {
-                  <small>Title must not exceed 100 characters</small>
+                  <span>Title must not exceed 100 characters</span>
                 }
               </div>
             }
-            <div class="char-counter">{{ title?.value?.length || 0 }}/100</div>
+            <div class="text-xs text-gray-500 text-right mt-1">{{ title?.value?.length || 0 }}/100</div>
           </div>
 
           <!-- Body Field -->
-          <div class="form-group">
-            <label for="body" class="form-label">Body</label>
+          <div>
+            <label for="body" class="block text-sm font-medium text-gray-700 mb-1">Body</label>
             <textarea
               id="body"
               formControlName="body"
-              class="form-textarea"
-              [class.error]="body?.invalid && body?.touched"
               placeholder="What's on your mind?"
               rows="6"
               maxlength="5000"
               (input)="autoResize($event)"
+              class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all placeholder-gray-400 resize-none"
+              [class.border-red-500]="body?.invalid && body?.touched"
             ></textarea>
             @if (body?.invalid && body?.touched) {
-              <div class="form-error">
+              <div class="text-red-500 text-xs mt-1">
                 @if (body?.errors?.['required']) {
-                  <small>Body is required</small>
+                  <span>Body is required</span>
                 }
                 @if (body?.errors?.['minlength']) {
-                  <small>Body must be at least 10 characters</small>
+                  <span>Body must be at least 10 characters</span>
                 }
                 @if (body?.errors?.['maxlength']) {
-                  <small>Body must not exceed 5000 characters</small>
+                  <span>Body must not exceed 5000 characters</span>
                 }
               </div>
             }
-            <div class="char-counter">{{ body?.value?.length || 0 }}/5000</div>
+            <div class="text-xs text-gray-500 text-right mt-1">{{ body?.value?.length || 0 }}/5000</div>
           </div>
 
           <!-- Modal Footer -->
-          <div class="modal-footer">
+          <div class="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
             <button
               type="button"
-              class="btn btn-secondary"
+              class="px-4 py-2.5 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               (click)="closeModal()"
               [disabled]="isSubmitting()"
             >
@@ -83,12 +101,13 @@
             </button>
             <button
               type="submit"
-              class="btn btn-primary"
+              class="px-6 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white rounded-lg transition-all font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               [disabled]="postForm.invalid || isSubmitting()"
             >
               @if (isSubmitting()) {
-                <svg class="spinner" viewBox="0 0 24 24" width="20" height="20">
-                  <circle class="path" cx="12" cy="12" r="10" fill="none" stroke-width="3" stroke="currentColor" stroke-dasharray="31.4, 31.4" stroke-linecap="round"/>
+                <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
                 <span>Posting...</span>
               } @else {

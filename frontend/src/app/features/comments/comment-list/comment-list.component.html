@@ -37,7 +37,11 @@
       </div>
     } @else {
       @for (comment of displayComments(); track trackByComment($index, comment)) {
-        <app-comment-card [comment]="comment" />
+        <app-comment-card
+          [comment]="comment"
+          (commentDeleted)="onCommentDeleted($event)"
+          (commentDeleteFailed)="onCommentDeleteFailed($event)"
+        />
       }
     }
   </div>

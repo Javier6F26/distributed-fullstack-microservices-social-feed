@@ -1,4 +1,4 @@
-import { Component, signal, output, OnInit } from '@angular/core';
+import { Component, signal, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RegistrationFormComponent } from '../registration-form/registration-form.component';
 import { LoginFormComponent } from '../login-form/login-form.component';
@@ -12,7 +12,7 @@ export type AuthTab = 'login' | 'register';
   templateUrl: './auth-modal.component.html',
   styleUrls: ['./auth-modal.component.scss'],
 })
-export class AuthModalComponent implements OnInit {
+export class AuthModalComponent {
   // Output events
   closeModal = output<void>();
   authSuccess = output<void>();
@@ -21,15 +21,10 @@ export class AuthModalComponent implements OnInit {
   activeTab = signal<AuthTab>('login');
   isLoading = signal(false);
 
-  ngOnInit(): void {
-    console.log('[AuthModalComponent] ngOnInit - AuthModal initialized');
-  }
-
   /**
    * Switch to login tab
    */
   switchToLogin(): void {
-    console.log('[AuthModalComponent] switchToLogin called');
     this.activeTab.set('login');
   }
 
@@ -37,7 +32,6 @@ export class AuthModalComponent implements OnInit {
    * Switch to register tab
    */
   switchToRegister(): void {
-    console.log('[AuthModalComponent] switchToRegister called');
     this.activeTab.set('register');
   }
 
@@ -45,7 +39,6 @@ export class AuthModalComponent implements OnInit {
    * Handle close
    */
   onClose(): void {
-    console.log('[AuthModalComponent] onClose called');
     this.closeModal.emit();
   }
 
@@ -53,8 +46,6 @@ export class AuthModalComponent implements OnInit {
    * Handle successful registration
    */
   onRegistrationSuccess(): void {
-    // Auto-switch to login or close modal
-    // For better UX, we'll keep them logged in after registration
     this.authSuccess.emit();
   }
 
@@ -70,7 +61,6 @@ export class AuthModalComponent implements OnInit {
    */
   onForgotPassword(): void {
     // Placeholder - will be implemented in future story
-    console.log('Forgot password clicked - to be implemented');
   }
 
   /**

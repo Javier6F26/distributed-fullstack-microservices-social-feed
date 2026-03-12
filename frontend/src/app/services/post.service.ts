@@ -4,28 +4,30 @@ import { Observable } from 'rxjs';
 
 export interface Comment {
   _id: string;
-  text: string;
   postId: string;
-  author?: string;
-  authorUsername?: string;
-  createdAt?: string;
-  likes?: number;
+  authorId: string;
+  name: string;
+  email: string;
+  body: string;
+  createdAt: string;
+  updatedAt?: string;
   tempId?: string; // For optimistic UI
-  body?: string; // Alias for text
-  isEdited?: boolean;
   pending?: boolean;
-  userId?: string;
 }
 
 export interface Post {
   _id: string;
-  title: string;
-  content: string;
+  authorId: string;
   author: string;
-  createdAt?: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  updatedAt?: string;
   recentComments?: Comment[];
   pending?: boolean; // For optimistic UI
   tempId?: string; // For correlating optimistic posts with real ones
+  commentCount?: number;
+  deleted?: boolean;
 }
 
 export interface CreatePostResponse {
@@ -34,8 +36,11 @@ export interface CreatePostResponse {
   data?: {
     tempId?: string;
     userId: string;
+    authorId?: string;
+    author?: string;
     title: string;
     body: string;
+    content?: string; // Alias for body (transformed by API Gateway)
     createdAt: string;
     pending: boolean;
     commentCount: number;
@@ -143,5 +148,16 @@ export class PostService {
    */
   removeOptimisticPost(posts: Post[], tempId: string): Post[] {
     return posts.filter(p => p.tempId !== tempId);
+  }
+
+  /**
+   * Delete a post by ID.
+   * Only the author can delete their own post.
+   *
+   * @param postId - Post ID to delete
+   * @returns Observable<void> on success
+   */
+  deletePost(postId: string): Observable<void> {
+    return this.http.delete<void>(`${this.API_URL}/posts/${postId}`);
   }
 }

@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { PostFeedComponent } from './features/posts/post-feed/post-feed.component';
 import { NotificationContainerComponent } from './components/notification-container/notification-container.component';
@@ -13,22 +13,17 @@ import { AuthModalComponent } from './features/auth/components/auth-modal/auth-m
   templateUrl: './app.html',
 })
 export class App {
-  showAuthModal = false;
+  showAuthModal = signal(false);
 
   onLoginClicked(): void {
-    console.log('[AppComponent] onLoginClicked called');
-    console.log('[AppComponent] Current showAuthModal:', this.showAuthModal);
-    this.showAuthModal = true;
-    console.log('[AppComponent] showAuthModal set to:', this.showAuthModal);
+    this.showAuthModal.set(true);
   }
 
   onCloseAuthModal(): void {
-    console.log('[AppComponent] onCloseAuthModal called');
-    this.showAuthModal = false;
+    this.showAuthModal.set(false);
   }
 
   onAuthSuccess(): void {
-    console.log('[AppComponent] onAuthSuccess called');
-    this.showAuthModal = false;
+    this.showAuthModal.set(false);
   }
 }

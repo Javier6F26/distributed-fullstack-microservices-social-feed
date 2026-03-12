@@ -70,6 +70,7 @@ export class PostFeedComponent implements OnInit, OnDestroy {
   // Comment state
   expandedComments = signal<Map<string, Comment[]>>(new Map());
   isLoadingComments = signal(false);
+  isDeletingPost = signal<string | null>(null); // Track which post is being deleted
   // Inject services
   private postService = inject(PostService);
   private notificationService = inject(NotificationService);
@@ -309,11 +310,11 @@ export class PostFeedComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // User is authenticated - allow commenting (full comment implementation in Story 3.2)
-    this.notificationService.info(
-      'Comment feature will be fully implemented in Epic 3',
-      3000,
-    );
+    // User is authenticated - expand comments section for the first post
+    const firstPost = this.posts()[0];
+    if (firstPost && firstPost._id) {
+      this.onShowAllComments(firstPost);
+    }
   }
 
   /**
@@ -370,8 +371,8 @@ export class PostFeedComponent implements OnInit, OnDestroy {
     // Close modal
     this.showCreatePostModal.set(false);
 
-    // Note: Post will be refreshed when polling detects new content
-    // The optimistic post will be replaced with the real one from server
+    // Note: The optimistic post remains in the feed.
+    // Polling loads additional posts but doesn't replace the optimistic one.
   }
 
   /**
@@ -463,5 +464,52 @@ export class PostFeedComponent implements OnInit, OnDestroy {
       if (map) return map;
     }
     return null;
+  }
+
+  /**
+   * Check if current user can delete a post
+   */
+  canDeletePost(post: Post): boolean {
+    const currentUser = this.authService.getCurrentUser();
+    return currentUser?._id === post.authorId;
+  }
+
+  /**
+   * Handle delete post click
+   */
+  onDeletePost(post: Post): void {
+    // Use native browser confirm dialog instead of modal library
+    const confirmed = confirm('Are you sure you want to delete this post? This action cannot be undone.');
+    if (confirmed) {
+      this.confirmDeletePost(post);
+    }
+  }
+
+  /**
+   * Confirm delete post with optimistic UI
+   */
+  private confirmDeletePost(post: Post): void {
+    // Set deleting state
+    this.isDeletingPost.set(post._id);
+
+    // Optimistic removal
+    const originalPosts = this.posts();
+    const updatedPosts = originalPosts.filter(p => p._id !== post._id);
+    this.posts.set(updatedPosts);
+
+    this.postService.deletePost(post._id).subscribe({
+      next: () => {
+        // Success - post already removed optimistically
+        this.isDeletingPost.set(null);
+        this.notificationService.success('Post deleted successfully');
+      },
+      error: (error) => {
+        // Rollback - restore post
+        this.posts.set(originalPosts);
+        this.isDeletingPost.set(null);
+        console.error('Failed to delete post:', error);
+        this.notificationService.error('Failed to delete post. Please try again.');
+      },
+    });
   }
 }

@@ -1,7 +1,7 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, interval, Subscription, throwError } from 'rxjs';
-import { tap, catchError, switchMap, filter } from 'rxjs/operators';
+import { Observable, interval, Subscription, throwError, BehaviorSubject } from 'rxjs';
+import { tap, catchError, switchMap, filter, first } from 'rxjs/operators';
 import { getTimeUntilExpiry } from '../shared/utils/token-utils';
 
 export interface User {
@@ -32,6 +32,12 @@ export interface LoginRequest {
   rememberMe?: boolean;
 }
 
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -54,6 +60,17 @@ export class AuthService {
 
   // Token refresh subscription
   private refreshSubscription: Subscription | null = null;
+
+  // Refresh concurrency control
+  private isRefreshingFlag = false;
+  private refreshSubject = new BehaviorSubject<string | null>(null);
+
+  // Logger for error tracking
+  private logger = {
+    error: (message: string, ...args: unknown[]) => console.error(`[AuthService Error] ${message}`, ...args),
+    warn: (message: string, ...args: unknown[]) => console.warn(`[AuthService Warn] ${message}`, ...args),
+    info: (message: string, ...args: unknown[]) => console.info(`[AuthService Info] ${message}`, ...args)
+  };
 
   // Refresh timing configuration
   private readonly REFRESH_CHECK_INTERVAL_MS = 5 * 60 * 1000; // Check every 5 minutes
@@ -199,23 +216,82 @@ export class AuthService {
 
   /**
    * Refresh access token
+   * Implements concurrency control to prevent multiple simultaneous refresh attempts
+   * and proper error handling to prevent infinite loops
    */
   refreshToken(): Observable<AuthResponse> {
+    // If already refreshing, return the existing refresh observable
+    // This prevents concurrent refresh attempts that could cause infinite loops
+    if (this.isRefreshingFlag) {
+      this.logger.info('Refresh already in progress, waiting for completion');
+      return this.refreshSubject.pipe(
+        filter(token => token !== null),
+        first(),
+        switchMap(() => {
+          // After refresh completes, return the new token
+          return this.http.post<AuthResponse>(`${this.API_URL}/auth/refresh`, {}, {
+            withCredentials: true,
+          });
+        })
+      );
+    }
+
+    this.isRefreshingFlag = true;
     this.refreshingSignal.set(true);
+    
+    // Log refresh start with token state for debugging
+    const hasToken = !!sessionStorage.getItem('access_token');
+    const tokenExpiry = hasToken ? this.getTokenExpiryInfo() : null;
+    this.logger.info(`[Token Refresh] Starting refresh - hasToken: ${hasToken}, tokenExpiry: ${tokenExpiry ? tokenExpiry.expiresIn + 's' : 'N/A'}`);
 
     return this.http.post<AuthResponse>(`${this.API_URL}/auth/refresh`, {}, {
       withCredentials: true,
     }).pipe(
       tap((response) => {
+        this.logger.info(`[Token Refresh] Success - new token expires in ${response.expiresIn}s`);
         this.accessTokenSignal.set(response.accessToken);
         sessionStorage.setItem('access_token', response.accessToken);
+
+        // Notify waiting requests that refresh completed
+        this.refreshSubject.next(response.accessToken);
         this.refreshingSignal.set(false);
+        this.isRefreshingFlag = false;
       }),
       catchError((error) => {
+        // CRITICAL: Log error once to prevent spam
+        this.logger.error(`[Token Refresh] Failed - status: ${error?.status}, message: ${error?.message || error?.error?.message || 'Unknown error'}`);
+
+        // CRITICAL: Clear refresh state to allow future attempts
+        this.isRefreshingFlag = false;
         this.refreshingSignal.set(false);
+        this.refreshSubject.next(null);
+
+        // CRITICAL: Clear auth state to prevent inconsistent state
+        // The AuthInterceptor will handle logout flow and user notification
+        // DO NOT show notification here - interceptor handles it to prevent duplicates
+        this.clearAuthState();
+
+        // Re-throw to allow interceptor to handle logout flow
         throw error;
       }),
     );
+  }
+
+  /**
+   * Get token expiry info for debugging
+   */
+  private getTokenExpiryInfo(): { expiresAt: Date; expiresIn: number } | null {
+    const token = this.getAccessToken();
+    if (!token) return null;
+    
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const expiresAt = new Date(payload.exp * 1000);
+      const expiresIn = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
+      return { expiresAt, expiresIn };
+    } catch {
+      return null;
+    }
   }
 
   /**
