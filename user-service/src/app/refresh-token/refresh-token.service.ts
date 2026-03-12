@@ -44,8 +44,6 @@ export class RefreshTokenService {
       lastUsedIp: clientIp || null,
     });
 
-    this.logger.debug(`Refresh token generated for user ${userId}`);
-
     return {
       refreshToken,
       tokenHash,

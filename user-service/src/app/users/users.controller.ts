@@ -26,8 +26,18 @@ export class UsersController {
    */
   @Get('profile')
   @UseGuards(JwtAuthGuard)
-  async getProfile(@Param('userId') userId: string) {
+  async getProfile(@Req() request: Request) {
+    const userId = request.user['sub'];
     return this.usersService.getProfile(userId);
+  }
+
+  /**
+   * GET /users/:id
+   * Get user by ID (for internal service calls)
+   */
+  @Get(':id')
+  async getUserById(@Param('id') id: string) {
+    return this.usersService.getProfile(id);
   }
 
   /**

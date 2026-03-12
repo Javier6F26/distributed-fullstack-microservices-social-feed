@@ -3,6 +3,7 @@ import {HttpModule} from '@nestjs/axios';
 import {AppController} from './app.controller';
 import {AppService} from './app.service';
 import {PostsController} from './posts/posts.controller';
+import {UsersController} from './users/users.controller';
 import {ConfigModule} from '@nestjs/config';
 import {AuthModule} from './auth/auth.module';
 import {RabbitmqModule} from './rabbitmq/rabbitmq.module';
@@ -37,7 +38,7 @@ import {CacheableMemory} from 'cacheable';
         RabbitmqModule,
         CommentsModule,
     ],
-    controllers: [AppController, PostsController],
+    controllers: [AppController, PostsController, UsersController],
     providers: [AppService],
 })
 export class AppModule {
