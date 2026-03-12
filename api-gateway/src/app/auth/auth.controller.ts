@@ -11,7 +11,7 @@ export class AuthController {
   constructor(
     private httpService: HttpService,
     private configService: ConfigService,
-    ) {}
+  ) {}
 
   private getUserServiceUrl(): string {
     return this.configService.get<string>('USER_SERVICE_URL') || 'http://localhost:3001';
@@ -23,7 +23,7 @@ export class AuthController {
    * Rate limit: 5 requests per minute (stricter for registration)
    */
   @Post('register')
-  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per 60 seconds
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   async register(@Body() registerUserDto: any, @Res() response: Response) {
     try {
       const userServiceUrl = this.getUserServiceUrl();
@@ -38,12 +38,8 @@ export class AuthController {
       // Forward the response from user-service
       return response.status(result.status).json(result.data);
     } catch (error: any) {
-      const status = error.response?.status || 500;
-      const message = error.response?.data?.message || 'Registration failed';
-      return response.status(status).json({
-        success: false,
-        message,
-      });
+      // Let the global filter handle the error
+      throw error;
     }
   }
 
@@ -53,7 +49,7 @@ export class AuthController {
    * Rate limit: 10 requests per minute (prevent brute force)
    */
   @Post('login')
-  @Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per 60 seconds
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   async login(@Body() loginUserDto: any, @Res() response: Response) {
     try {
       const userServiceUrl = this.getUserServiceUrl();
@@ -75,12 +71,8 @@ export class AuthController {
 
       return response.status(result.status).json(result.data);
     } catch (error: any) {
-      const status = error.response?.status || 500;
-      const message = error.response?.data?.message || 'Login failed';
-      return response.status(status).json({
-        success: false,
-        message,
-      });
+      // Let the global filter handle the error
+      throw error;
     }
   }
 
@@ -122,12 +114,8 @@ export class AuthController {
 
       return response.status(result.status).json(result.data);
     } catch (error: any) {
-      const status = error.response?.status || 500;
-      const message = error.response?.data?.message || 'Token refresh failed';
-      return response.status(status).json({
-        success: false,
-        message,
-      });
+      // Let the global filter handle the error
+      throw error;
     }
   }
 
@@ -164,12 +152,8 @@ export class AuthController {
 
       return response.status(result.status).json(result.data);
     } catch (error: any) {
-      const status = error.response?.status || 500;
-      const message = error.response?.data?.message || 'Logout failed';
-      return response.status(status).json({
-        success: false,
-        message,
-      });
+      // Let the global filter handle the error
+      throw error;
     }
   }
 
@@ -207,12 +191,8 @@ export class AuthController {
 
       return response.status(result.status).json(result.data);
     } catch (error: any) {
-      const status = error.response?.status || 500;
-      const message = error.response?.data?.message || 'Deletion request failed';
-      return response.status(status).json({
-        success: false,
-        message,
-      });
+      // Let the global filter handle the error
+      throw error;
     }
   }
 }

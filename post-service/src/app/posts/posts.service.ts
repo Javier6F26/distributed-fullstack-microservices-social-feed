@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Post, PostDocument } from '../schemas/post.schema';
 import { SearchPostsDto } from './dto/search-posts.dto';
 import { FilterPostsDto } from './dto/filter-posts.dto';
@@ -9,6 +9,13 @@ import { PostCreateMessage } from '@prueba-tecnica-fullstack-angular-nest-js-mon
 @Injectable()
 export class PostsService {
   constructor(@InjectModel(Post.name) private postModel: Model<PostDocument>) {}
+
+  /**
+   * Validate if a string is a valid MongoDB ObjectId
+   */
+  private isValidObjectId(id: string): boolean {
+    return Types.ObjectId.isValid(id);
+  }
 
   /**
    * Create post from RabbitMQ queue message.
@@ -32,7 +39,12 @@ export class PostsService {
 
   async findAll(limit: number = 20, cursor?: string): Promise<{ posts: Post[]; nextCursor: string | null }> {
     const query: any = {};
+    
+    // Validate cursor if provided
     if (cursor) {
+      if (!this.isValidObjectId(cursor)) {
+        throw new BadRequestException(`Invalid cursor format: must be a 24-character hex string`);
+      }
       query._id = { $lt: cursor };
     }
 
@@ -53,8 +65,11 @@ export class PostsService {
   async search(searchDto: SearchPostsDto, limit: number = 20, cursor?: string): Promise<{ posts: Post[]; nextCursor: string | null }> {
     const query: any = {};
 
-    // Add cursor-based pagination if provided
+    // Validate cursor if provided
     if (cursor) {
+      if (!this.isValidObjectId(cursor)) {
+        throw new BadRequestException(`Invalid cursor format: must be a 24-character hex string`);
+      }
       query._id = { $lt: cursor };
     }
 
@@ -84,9 +99,12 @@ export class PostsService {
 
   async filter(filterDto: FilterPostsDto, limit: number = 20, cursor?: string): Promise<{ posts: Post[]; nextCursor: string | null }> {
     const query: any = {};
-    
-    // Add cursor-based pagination if provided
+
+    // Validate cursor if provided
     if (cursor) {
+      if (!this.isValidObjectId(cursor)) {
+        throw new BadRequestException(`Invalid cursor format: must be a 24-character hex string`);
+      }
       query._id = { $lt: cursor };
     }
 
@@ -131,8 +149,11 @@ export class PostsService {
   ): Promise<{ posts: Post[]; nextCursor: string | null }> {
     const query: any = {};
 
-    // Add cursor-based pagination if provided
+    // Validate cursor if provided
     if (cursor) {
+      if (!this.isValidObjectId(cursor)) {
+        throw new BadRequestException(`Invalid cursor format: must be a 24-character hex string`);
+      }
       query._id = { $lt: cursor };
     }
 

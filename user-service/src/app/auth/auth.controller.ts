@@ -27,10 +27,10 @@ export class AuthController {
     // Set refresh token as HttpOnly cookie
     this.authService.setRefreshTokenCookie(response, result.refreshToken);
 
-    // Remove refreshToken from response body (it's in the cookie)
+    // Remove refreshToken from response body and return plain object (let NestJS handle serialization)
     const { refreshToken, ...responseData } = result;
 
-    return response.status(HttpStatus.CREATED).json(responseData);
+    return responseData;
   }
 
   /**
@@ -46,10 +46,10 @@ export class AuthController {
     // Set refresh token as HttpOnly cookie
     this.authService.setRefreshTokenCookie(response, result.refreshToken);
 
-    // Remove refreshToken from response body
+    // Remove refreshToken from response body and return plain object (let NestJS handle serialization)
     const { refreshToken, ...responseData } = result;
 
-    return response.status(HttpStatus.OK).json(responseData);
+    return responseData;
   }
 
   /**
@@ -66,10 +66,10 @@ export class AuthController {
     const refreshToken = request.cookies?.refreshToken;
 
     if (!refreshToken) {
-      return response.status(HttpStatus.UNAUTHORIZED).json({
+      return {
         success: false,
         message: 'Refresh token not found',
-      });
+      };
     }
 
     try {
@@ -78,10 +78,10 @@ export class AuthController {
 
       if (!validation.isValid) {
         this.authService.clearRefreshTokenCookie(response);
-        return response.status(HttpStatus.UNAUTHORIZED).json({
+        return {
           success: false,
           message: 'Invalid or expired refresh token',
-        });
+        };
       }
 
       // Rotate refresh token and generate new access token
@@ -94,18 +94,18 @@ export class AuthController {
       // Set new refresh token as HttpOnly cookie
       this.authService.setRefreshTokenCookie(response, newTokens.refreshToken);
 
-      return response.status(HttpStatus.OK).json({
+      return {
         success: true,
         accessToken,
         tokenType: 'Bearer',
         expiresIn: parseInt(process.env.JWT_ACCESS_EXPIRES_IN || '15m') * 60,
-      });
+      };
     } catch (error: any) {
       this.authService.clearRefreshTokenCookie(response);
-      return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+      return {
         success: false,
         message: 'Token refresh failed',
-      });
+      };
     }
   }
 
@@ -124,25 +124,25 @@ export class AuthController {
       const userId = request.user['sub'];
 
       if (!userId) {
-        return response.status(HttpStatus.UNAUTHORIZED).json({
+        return {
           success: false,
           message: 'User ID not found',
-        });
+        };
       }
 
       // Logout user (revoke all tokens and clear cookie)
       await this.authService.logout(userId, response);
 
-      return response.status(HttpStatus.OK).json({
+      return {
         success: true,
         message: 'Logout successful',
-      });
+      };
     } catch (error: any) {
       this.authService.clearRefreshTokenCookie(response);
-      return response.status(HttpStatus.INTERNAL_SERVER_ERROR).json({
+      return {
         success: false,
         message: 'Logout failed',
-      });
+      };
     }
   }
 }

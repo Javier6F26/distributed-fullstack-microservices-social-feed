@@ -3,29 +3,17 @@
  * This is only a minimal backend to get started.
  */
 
-import { Logger } from '@nestjs/common';
+import { Logger, INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app/app.module';
+import { HttpErrorFilter } from './app/filters/http-error.filter';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  const globalPrefix = 'api/v1';
-  app.setGlobalPrefix(globalPrefix);
-
-  // Enable CORS with credentials for cookie-based auth
-  app.enableCors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:4200',
-    credentials: true, // Allow cookies
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  });
-
-  // Enable cookie parsing - use require to avoid ESM/CJS interop issues
-  const cookieParser = require('cookie-parser');
-  app.use(cookieParser());
-
-  // Setup Swagger/OpenAPI documentation
+/**
+ * Setup Swagger/OpenAPI documentation
+ * Separated from bootstrap to keep it clean
+ */
+function setupDocumentation(app: INestApplication): void {
   const config = new DocumentBuilder()
     .setTitle('API Gateway - Distributed Fullstack Microservices')
     .setDescription(`
@@ -65,7 +53,9 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document, {
+  
+  // Serve Swagger UI at /docs (not /api/docs)
+  SwaggerModule.setup('docs', app, document, {
     swaggerOptions: {
       persistAuthorization: true,
     },
@@ -76,7 +66,7 @@ async function bootstrap() {
   // Save OpenAPI spec to file
   const fs = require('fs');
   const path = require('path');
-  const openapiDir = path.join(process.cwd(), 'openapi');
+  const openapiDir = path.join(process.cwd(), 'docs', 'openapi');
   if (!fs.existsSync(openapiDir)) {
     fs.mkdirSync(openapiDir, { recursive: true });
   }
@@ -84,6 +74,30 @@ async function bootstrap() {
     path.join(openapiDir, 'openapi-api-gateway.json'),
     JSON.stringify(document, null, 2)
   );
+}
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  const globalPrefix = 'api/v1';
+  app.setGlobalPrefix(globalPrefix);
+
+  // Enable CORS with credentials for cookie-based auth
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN || 'http://localhost:4200',
+    credentials: true, // Allow cookies
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+
+  // Enable cookie parsing - use require to avoid ESM/CJS interop issues
+  const cookieParser = require('cookie-parser');
+  app.use(cookieParser());
+
+  // Register global HTTP error filter for downstream service errors
+  app.useGlobalFilters(new HttpErrorFilter());
+
+  // Setup documentation (separate function for clean bootstrap)
+  setupDocumentation(app);
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
@@ -91,7 +105,7 @@ async function bootstrap() {
     `🚀 Application is running on: http://localhost:${port}/${globalPrefix}`,
   );
   Logger.log(
-    `📄 OpenAPI Documentation: http://localhost:${port}/api/docs`,
+    `📄 OpenAPI Documentation: http://localhost:${port}/docs`,
   );
 }
 

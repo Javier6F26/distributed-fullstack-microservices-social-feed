@@ -2,7 +2,7 @@ import { Controller, Get, Post, UseInterceptors, Inject, Param, Body, HttpStatus
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
-import { CACHE_MANAGER ,Cache} from '@nestjs/cache-manager';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RabbitmqService } from '../rabbitmq/rabbitmq.service';

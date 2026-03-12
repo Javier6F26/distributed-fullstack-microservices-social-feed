@@ -3,15 +3,17 @@
  * This is only a minimal backend to get started.
  */
 
-import { Logger } from '@nestjs/common';
+import { Logger, INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app/app.module';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  
-  // Setup Swagger/OpenAPI documentation
+/**
+ * Setup Swagger/OpenAPI documentation
+ * Separated from bootstrap to keep it clean
+ * Note: No /api prefix - this service serves docs at /docs directly
+ */
+function setupDocumentation(app: INestApplication): void {
   const config = new DocumentBuilder()
     .setTitle('Post Service - Distributed Fullstack Microservices')
     .setDescription(`
@@ -43,7 +45,9 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document, {
+  
+  // Serve Swagger UI at /docs (no /api prefix)
+  SwaggerModule.setup('docs', app, document, {
     swaggerOptions: {
       persistAuthorization: true,
     },
@@ -54,7 +58,7 @@ async function bootstrap() {
   // Save OpenAPI spec to file
   const fs = require('fs');
   const path = require('path');
-  const openapiDir = path.join(process.cwd(), 'openapi');
+  const openapiDir = path.join(process.cwd(), 'docs', 'openapi');
   if (!fs.existsSync(openapiDir)) {
     fs.mkdirSync(openapiDir, { recursive: true });
   }
@@ -62,15 +66,18 @@ async function bootstrap() {
     path.join(openapiDir, 'openapi-post-service.json'),
     JSON.stringify(document, null, 2)
   );
+}
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  
+  // Setup documentation (separate function for clean bootstrap)
+  setupDocumentation(app);
 
   const port = process.env.PORT || 3002;
   await app.listen(port);
-  Logger.log(
-    `🚀 Application is running on: http://localhost:${port}`,
-  );
-  Logger.log(
-    `📄 OpenAPI Documentation: http://localhost:${port}/api/docs`,
-  );
+  Logger.log(`🚀 Application is running on: http://localhost:${port}`);
+  Logger.log(`📄 OpenAPI Documentation: http://localhost:${port}/docs`);
 }
 
 bootstrap();

@@ -1,14 +1,26 @@
-import {Body, Controller, Get, HttpCode, HttpStatus, Inject, Param, Post, Query, UseGuards, UseInterceptors} from '@nestjs/common';
-import {HttpService} from '@nestjs/axios';
-import {firstValueFrom} from 'rxjs';
-import {Cache, CACHE_MANAGER, CacheInterceptor, CacheTTL} from '@nestjs/cache-manager';
-import {ConfigService} from '@nestjs/config';
-import {JwtAuthGuard} from '../auth/jwt-auth.guard';
-import {RabbitmqService} from '../rabbitmq/rabbitmq.service';
-import {CreatePostDto} from './dto/create-post.dto';
-import {PostCreateMessage, PostResponse} from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
-import {validate} from 'class-validator';
-import {Throttle} from '@nestjs/throttler';
+import {
+    Body,
+    Controller,
+    Get,
+    HttpCode,
+    HttpStatus,
+    Inject,
+    Param,
+    Post,
+    Query,
+    UseGuards,
+    UseInterceptors,
+} from '@nestjs/common';
+import { HttpService } from '@nestjs/axios';
+import { firstValueFrom } from 'rxjs';
+import { Cache, CACHE_MANAGER, CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
+import { ConfigService } from '@nestjs/config';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
+import { CreatePostDto } from './dto/create-post.dto';
+import { PostCreateMessage, PostResponse } from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
+import { validate } from 'class-validator';
+import { Throttle } from '@nestjs/throttler';
 
 @Controller('posts')
 export class PostsController {
@@ -33,7 +45,7 @@ export class PostsController {
 
         // Fetch posts from post-service
         const postsResponse = await firstValueFrom(
-            this.httpService.get(`${postServiceUrl}/posts`, {params}),
+            this.httpService.get(`${postServiceUrl}/posts`, { params }),
         );
 
         const posts = postsResponse.data.data || [];
@@ -44,7 +56,7 @@ export class PostsController {
             posts.map(async (post: any) => {
                 try {
                     const commentsResponse = await firstValueFrom(
-                        this.httpService.get(`${commentServiceUrl}/comments/post/${post._id}?limit=4`, {timeout: 5000}),
+                        this.httpService.get(`${commentServiceUrl}/comments/post/${post._id}?limit=4`, { timeout: 5000 }),
                     );
                     return commentsResponse.data.data || [];
                 } catch (error) {
@@ -59,10 +71,10 @@ export class PostsController {
         const postsWithComments = posts.map((post: any, index: number) => {
             const result = commentsResults[index];
             const recentComments = result.status === 'fulfilled' ? result.value : [];
-            return {...post, recentComments};
+            return { ...post, recentComments };
         });
 
-        return {success: true, data: postsWithComments, nextCursor};
+        return { success: true, data: postsWithComments, nextCursor };
     }
 
     @Get('search')
@@ -81,7 +93,7 @@ export class PostsController {
         const postServiceUrl = this.configService.get<string>('POST_SERVICE_URL') || 'http://localhost:3002';
 
         const response = await firstValueFrom(
-            this.httpService.get(`${postServiceUrl}/posts/search`, {params}),
+            this.httpService.get(`${postServiceUrl}/posts/search`, { params }),
         );
         return response.data;
     }
@@ -104,7 +116,7 @@ export class PostsController {
         const postServiceUrl = this.configService.get<string>('POST_SERVICE_URL') || 'http://localhost:3002';
 
         const response = await firstValueFrom(
-            this.httpService.get(`${postServiceUrl}/posts/filter`, {params}),
+            this.httpService.get(`${postServiceUrl}/posts/filter`, { params }),
         );
         return response.data;
     }
@@ -129,7 +141,7 @@ export class PostsController {
         const postServiceUrl = this.configService.get<string>('POST_SERVICE_URL') || 'http://localhost:3002';
 
         const response = await firstValueFrom(
-            this.httpService.get(`${postServiceUrl}/posts/search-filter`, {params}),
+            this.httpService.get(`${postServiceUrl}/posts/search-filter`, { params }),
         );
         return response.data;
     }
@@ -138,7 +150,7 @@ export class PostsController {
     @Post('invalidate-cache')
     async invalidateCache() {
         await this.cacheManager.clear();
-        return {success: true, message: 'Cache invalidated'};
+        return { success: true, message: 'Cache invalidated' };
     }
 
     /**
