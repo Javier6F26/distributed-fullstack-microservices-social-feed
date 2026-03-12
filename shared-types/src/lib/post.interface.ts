@@ -4,14 +4,17 @@
  */
 export interface Post {
   _id?: string;
-  userId: string;
+  authorId: string;
+  author: string;
   title: string;
   body: string;
-  createdAt: string; // ISO 8601 format
+  createdAt: Date | string;
   commentCount: number;
   deleted?: boolean;
-  deletedAt?: string;
+  deletedAt?: Date | string;
   authorDeleted?: boolean;
+  authorDeletedAt?: Date | string;
+  recentComments?: any[];
 }
 
 /**
@@ -29,9 +32,10 @@ export interface OptimisticPost extends Post {
  */
 export interface PostCreateMessage {
   userId: string;
+  author: string;
   title: string;
   body: string;
-  createdAt: string;
+  createdAt: Date | string;
   tempId?: string;
 }
 
@@ -55,11 +59,10 @@ export interface PostResponse {
  */
 export interface CommentCreateMessage {
   postId: string;
-  userId: string;
-  authorUsername: string;
-  authorAvatar?: string;
+  name: string;
+  email: string;
   body: string;
-  createdAt: string;
+  createdAt: Date | string;
   tempId?: string;
 }
 
@@ -69,13 +72,11 @@ export interface CommentCreateMessage {
 export interface Comment {
   _id?: string;
   postId: string;
-  userId: string;
-  authorUsername: string;
-  authorAvatar?: string;
+  name: string;
+  email: string;
   body: string;
-  createdAt: string;
-  deleted?: boolean;
-  deletedAt?: string;
+  createdAt: Date | string;
+  updatedAt?: Date | string;
 }
 
 /**

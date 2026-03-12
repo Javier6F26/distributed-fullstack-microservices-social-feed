@@ -1,13 +1,11 @@
 import { Controller } from '@nestjs/common';
-import { MessagePattern, Ctx, Payload } from '@nestjs/microservices';
-import { RmqContext, RmqRecordBuilder } from '@nestjs/microservices';
+import { MessagePattern, Payload } from '@nestjs/microservices';
 import { PostsService } from '../posts/posts.service';
 import { PostCreateMessage } from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
-import { POST_CREATE_QUEUE, DEAD_LETTER_EXCHANGE } from './rabbitmq.constants';
+import { POST_CREATE_QUEUE } from './rabbitmq.constants';
 
 /**
  * RabbitMQ Controller for consuming post creation messages.
- * Uses proper NestJS microservices pattern with message acknowledgment.
  */
 @Controller()
 export class RabbitmqController {
@@ -15,50 +13,29 @@ export class RabbitmqController {
 
   /**
    * Handle post creation messages from RabbitMQ queue.
-   * Acknowledges message on success, rejects to DLQ on failure.
-   * 
+   * NestJS handles acknowledgment automatically.
+   *
    * @param data - Post creation message payload
-   * @param context - RMQ context for manual acknowledgment
    */
   @MessagePattern(POST_CREATE_QUEUE)
-  async handlePostCreate(
-    @Payload() data: PostCreateMessage,
-    @Ctx() context: RmqContext,
-  ) {
-    const channel = context.getChannelRef();
-    const originalMessage = context.getMessage();
-
+  async handlePostCreate(@Payload() data: any) {
     try {
+      // NestJS may wrap the payload, extract the actual message
+      const message: PostCreateMessage = data?.pattern ? data.data : data;
+
       // Validate message payload
-      if (!data.userId || !data.title || !data.body) {
+      if (!message.userId || !message.title || !message.body) {
         throw new Error('Invalid message payload: missing required fields');
       }
 
       // Create post in database
-      await this.postsService.createPostFromQueue(data);
+      await this.postsService.createPostFromQueue(message);
 
-      // Acknowledge successful processing
-      channel.ack(originalMessage);
-      
-      // Emit post.created event for other services
-      channel.sendToQueue('post.events', new RmqRecordBuilder({
-        event: 'post.created',
-        data: {
-          postId: data.tempId, // Will be replaced with actual _id after save
-          userId: data.userId,
-          tempId: data.tempId,
-        },
-      }).build());
-
-      return { success: true, tempId: data.tempId };
+      return { success: true, tempId: message.tempId };
     } catch (error) {
       // Log error
-      console.error('Failed to process post creation:', error.message);
-
-      // Reject message and send to DLQ (don't retry)
-      channel.nack(originalMessage, false, false);
-
-      return { success: false, error: error.message };
+      console.error('Failed to process post creation:', (error as Error).message);
+      throw error; // Let NestJS handle the error
     }
   }
 }

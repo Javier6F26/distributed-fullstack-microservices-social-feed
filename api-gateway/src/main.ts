@@ -1,13 +1,39 @@
-/**
- * This is not a production server yet!
- * This is only a minimal backend to get started.
- */
-
-import { Logger, INestApplication } from '@nestjs/common';
+import { INestApplication, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app/app.module';
 import { HttpErrorFilter } from './app/filters/http-error.filter';
+import * as fs from 'fs';
+import * as path from 'path';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  const globalPrefix = 'api/v1';
+  app.setGlobalPrefix(globalPrefix);
+
+  app.enableCors({
+    origin: process.env.CORS_ORIGIN || 'http://localhost:4200',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+
+  const cookieParser = require('cookie-parser');
+  app.use(cookieParser());
+
+  app.useGlobalFilters(new HttpErrorFilter());
+
+  setupDocumentation(app);
+
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+  Logger.log(
+    `🚀 Application is running on: http://localhost:${port}/${globalPrefix}`,
+  );
+  Logger.log(`📄 OpenAPI Documentation: http://localhost:${port}/docs`);
+}
+
+bootstrap();
 
 /**
  * Setup Swagger/OpenAPI documentation
@@ -16,28 +42,29 @@ import { HttpErrorFilter } from './app/filters/http-error.filter';
 function setupDocumentation(app: INestApplication): void {
   const config = new DocumentBuilder()
     .setTitle('API Gateway - Distributed Fullstack Microservices')
-    .setDescription(`
+    .setDescription(
+      `
       Main API Gateway for the distributed fullstack microservices architecture.
-      
-      This gateway proxies requests to:
-      - User Service (Authentication & User Management)
-      - Post Service (Posts & Content)
-      - Comment Service (Comments & Discussions)
-      
-      ## Authentication
-      All authenticated endpoints require a valid JWT token in the Authorization header.
-      Use the /auth/login endpoint to obtain an access token.
-      
+
+      ## Authentication Flow
+      1. **Register** - Create a new account via \`POST /auth/register\`
+      2. **Login** - Obtain access token via \`POST /auth/login\`
+      3. **Use Token** - Include \`Authorization: Bearer {token}\` in requests
+      4. **Refresh** - Use \`POST /auth/refresh\` when token expires
+      5. **Logout** - Revoke tokens via \`POST /auth/logout\`
+
       ## Rate Limiting
       Endpoints are protected by rate limiting to prevent abuse.
-    `)
+    `,
+    )
     .setVersion('1.0.0')
     .addTag('api-gateway', 'API Gateway endpoints')
     .addTag('authentication', 'User authentication endpoints')
     .addTag('posts', 'Post management endpoints')
     .addTag('comments', 'Comment management endpoints')
     .addBearerAuth({
-      description: 'JWT Authorization header using the Bearer scheme. Example: "Bearer {token}"',
+      description:
+        'JWT Authorization header using the Bearer scheme. Example: "Bearer {token}"',
       name: 'Authorization',
       in: 'header',
       type: 'http',
@@ -53,8 +80,8 @@ function setupDocumentation(app: INestApplication): void {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  
-  // Serve Swagger UI at /docs (not /api/docs)
+
+  // Serve Swagger UI at /docs
   SwaggerModule.setup('docs', app, document, {
     swaggerOptions: {
       persistAuthorization: true,
@@ -64,49 +91,484 @@ function setupDocumentation(app: INestApplication): void {
   });
 
   // Save OpenAPI spec to file
-  const fs = require('fs');
-  const path = require('path');
   const openapiDir = path.join(process.cwd(), 'docs', 'openapi');
   if (!fs.existsSync(openapiDir)) {
     fs.mkdirSync(openapiDir, { recursive: true });
   }
   fs.writeFileSync(
     path.join(openapiDir, 'openapi-api-gateway.json'),
-    JSON.stringify(document, null, 2)
+    JSON.stringify(document, null, 2),
   );
+  Logger.log(`📄 OpenAPI spec saved to: docs/openapi/openapi-api-gateway.json`);
+
+  // Generate Postman collection
+  generatePostmanCollection();
+  Logger.log('📮 Postman collection generated: docs/postman/');
 }
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  const globalPrefix = 'api/v1';
-  app.setGlobalPrefix(globalPrefix);
+/**
+ * Generate Postman collection with automated test flows
+ */
+function generatePostmanCollection(): void {
+  const baseUrl = 'http://localhost:3000/api/v1';
+  const timestamp = Date.now();
 
-  // Enable CORS with credentials for cookie-based auth
-  app.enableCors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:4200',
-    credentials: true, // Allow cookies
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  });
+  const postmanDir = path.join(process.cwd(), 'docs', 'postman', 'flows');
+  if (!fs.existsSync(postmanDir)) {
+    fs.mkdirSync(postmanDir, { recursive: true });
+  }
 
-  // Enable cookie parsing - use require to avoid ESM/CJS interop issues
-  const cookieParser = require('cookie-parser');
-  app.use(cookieParser());
+  const postmanCollection = {
+    info: {
+      name: 'Distributed Fullstack API',
+      description: 'Auto-generated Postman collection with test flows.',
+      schema:
+        'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
+    },
+    variable: [
+      { key: 'baseUrl', value: baseUrl, type: 'string' },
+      { key: 'accessToken', value: '', type: 'string' },
+      { key: 'refreshToken', value: '', type: 'string' },
+      { key: 'userId', value: '', type: 'string' },
+      { key: 'postId', value: '', type: 'string' },
+      { key: 'commentId', value: '', type: 'string' },
+      {
+        key: 'testUsername',
+        value: `test_${timestamp}`,
+        type: 'default',
+        enabled: true,
+      },
+      {
+        key: 'testEmail',
+        value: `test_${timestamp}@example.com`,
+        type: 'string',
+      },
+      { key: 'testPassword', value: 'Test1234!', type: 'string' },
+    ],
+    auth: {
+      type: 'bearer',
+      bearer: [{ key: 'token', value: '{{accessToken}}', type: 'string' }],
+    },
+    item: [
+      {
+        name: '🔰 Full Test Flow',
+        description: 'Run these requests in order',
+        item: [
+          {
+            name: '01 - Register User',
+            request: {
+              method: 'POST',
+              header: [{ key: 'Content-Type', value: 'application/json' }],
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify(
+                  {
+                    username: '{{testUsername}}',
+                    email: '{{testEmail}}',
+                    password: '{{testPassword}}',
+                  },
+                  null,
+                  2,
+                ),
+              },
+              url: {
+                raw: '{{baseUrl}}/auth/register',
+                host: ['{{baseUrl}}'],
+                path: ['auth', 'register'],
+              },
+            },
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: [
+                    'if (pm.response.code === 201) {',
+                    '    const response = pm.response.json();',
+                    '    if (response.user && response.user._id) { pm.collectionVariables.set("userId", response.user._id); }',
+                    '    if (response.refreshToken) { pm.collectionVariables.set("refreshToken", response.refreshToken); }',
+                    '}',
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            name: '02 - Login',
+            request: {
+              method: 'POST',
+              header: [{ key: 'Content-Type', value: 'application/json' }],
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify(
+                  { identifier: '{{testEmail}}', password: '{{testPassword}}' },
+                  null,
+                  2,
+                ),
+              },
+              url: {
+                raw: '{{baseUrl}}/auth/login',
+                host: ['{{baseUrl}}'],
+                path: ['auth', 'login'],
+              },
+            },
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: [
+                    'if (pm.response.code === 200) {',
+                    '    const response = pm.response.json();',
+                    '    if (response.accessToken) { pm.collectionVariables.set("accessToken", response.accessToken); }',
+                    '    if (response.refreshToken) { pm.collectionVariables.set("refreshToken", response.refreshToken); }',
+                    '}',
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            name: '03 - Create Post',
+            request: {
+              auth: {
+                type: 'bearer',
+                bearer: [{ key: 'token', value: '{{accessToken}}' }],
+              },
+              method: 'POST',
+              header: [{ key: 'Content-Type', value: 'application/json' }],
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify(
+                  {
+                    title: 'Test Post',
+                    body: 'Test content for post creation',
+                  },
+                  null,
+                  2,
+                ),
+              },
+              url: {
+                raw: '{{baseUrl}}/posts',
+                host: ['{{baseUrl}}'],
+                path: ['posts'],
+              },
+            },
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: [
+                    'if (pm.response.code === 201) {',
+                    '    const response = pm.response.json();',
+                    '    pm.test("Post created successfully", function() {',
+                    '        pm.expect(response.success).to.be.true;',
+                    '        pm.expect(response.data).to.have.property("title", "Test Post");',
+                    '        pm.expect(response.data).to.have.property("body", "Test content for post creation");',
+                    '        pm.expect(response.data).to.have.property("authorId");',
+                    '        pm.expect(response.data).to.have.property("author");',
+                    '    });',
+                    '    if (response.data && response.data._id) { pm.collectionVariables.set("postId", response.data._id); }',
+                    '}',
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            name: '04 - Get All Posts',
+            request: {
+              method: 'GET',
+              url: {
+                raw: '{{baseUrl}}/posts?limit=10',
+                host: ['{{baseUrl}}'],
+                path: ['posts'],
+                query: [{ key: 'limit', value: '10' }],
+              },
+            },
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: [
+                    'if (pm.response.code === 200) {',
+                    '    const response = pm.response.json();',
+                    '    pm.test("Posts retrieved successfully", function() {',
+                    '        pm.expect(response.success).to.be.true;',
+                    '        pm.expect(response.data).to.be.an("array");',
+                    '    });',
+                    '    if (response.data && response.data.length > 0) {',
+                    '        const post = response.data[0];',
+                    '        pm.collectionVariables.set("postId", post._id);',
+                    '        pm.test("Post has correct structure", function() {',
+                    '            pm.expect(post).to.have.property("authorId");',
+                    '            pm.expect(post).to.have.property("author");',
+                    '            pm.expect(post).to.have.property("title");',
+                    '            pm.expect(post).to.have.property("body");',
+                    '            pm.expect(post).to.have.property("createdAt");',
+                    '            pm.expect(post).to.have.property("recentComments").that.is.an("array");',
+                    '        });',
+                    '    }',
+                    '}',
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            name: '05 - Create Comment',
+            request: {
+              auth: {
+                type: 'bearer',
+                bearer: [{ key: 'token', value: '{{accessToken}}' }],
+              },
+              method: 'POST',
+              header: [{ key: 'Content-Type', value: 'application/json' }],
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify(
+                  {
+                    postId: '{{postId}}',
+                    body: 'Test comment for comment creation',
+                  },
+                  null,
+                  2,
+                ),
+              },
+              url: {
+                raw: '{{baseUrl}}/comments',
+                host: ['{{baseUrl}}'],
+                path: ['comments'],
+              },
+            },
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: [
+                    'if (pm.response.code === 201) {',
+                    '    const response = pm.response.json();',
+                    '    pm.test("Comment created successfully", function() {',
+                    '        pm.expect(response.success).to.be.true;',
+                    '        pm.expect(response.data).to.have.property("postId", pm.collectionVariables.get("postId"));',
+                    '        pm.expect(response.data).to.have.property("name");',
+                    '        pm.expect(response.data).to.have.property("email");',
+                    '        pm.expect(response.data).to.have.property("body", "Test comment for comment creation");',
+                    '        pm.expect(response.data).to.have.property("createdAt");',
+                    '    });',
+                    '    if (response.data && response.data._id) { pm.collectionVariables.set("commentId", response.data._id); }',
+                    '}',
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            name: '06 - Get Post Comments',
+            request: {
+              method: 'GET',
+              url: {
+                raw: '{{baseUrl}}/comments/post/{{postId}}?limit=10',
+                host: ['{{baseUrl}}'],
+                path: ['comments', 'post', '{{postId}}'],
+                query: [{ key: 'limit', value: '10' }],
+              },
+            },
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: [
+                    'if (pm.response.code === 200) {',
+                    '    const response = pm.response.json();',
+                    '    pm.test("Comments retrieved successfully", function() {',
+                    '        pm.expect(response.success).to.be.true;',
+                    '        pm.expect(response.data).to.be.an("array");',
+                    '    });',
+                    '    if (response.data && response.data.length > 0) {',
+                    '        const comment = response.data[0];',
+                    '        pm.test("Comment has correct structure", function() {',
+                    '            pm.expect(comment).to.have.property("postId");',
+                    '            pm.expect(comment).to.have.property("name");',
+                    '            pm.expect(comment).to.have.property("email");',
+                    '            pm.expect(comment).to.have.property("body");',
+                    '            pm.expect(comment).to.have.property("createdAt");',
+                    '        });',
+                    '    }',
+                    '}',
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            name: '07 - Refresh Token',
+            request: {
+              method: 'POST',
+              url: {
+                raw: '{{baseUrl}}/auth/refresh',
+                host: ['{{baseUrl}}'],
+                path: ['auth', 'refresh'],
+              },
+            },
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: [
+                    'if (pm.response.code === 200) {',
+                    '    const response = pm.response.json();',
+                    '    if (response.accessToken) { pm.collectionVariables.set("accessToken", response.accessToken); }',
+                    '}',
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            name: '08 - Verify Token',
+            request: {
+              auth: {
+                type: 'bearer',
+                bearer: [{ key: 'token', value: '{{accessToken}}' }],
+              },
+              method: 'GET',
+              url: {
+                raw: '{{baseUrl}}/posts',
+                host: ['{{baseUrl}}'],
+                path: ['posts'],
+              },
+            },
+          },
+        ],
+      },
+      {
+        name: '🔐 Authentication',
+        item: [
+          {
+            name: 'Register',
+            request: {
+              method: 'POST',
+              url: {
+                raw: '{{baseUrl}}/auth/register',
+                host: ['{{baseUrl}}'],
+                path: ['auth', 'register'],
+              },
+            },
+          },
+          {
+            name: 'Login',
+            request: {
+              method: 'POST',
+              url: {
+                raw: '{{baseUrl}}/auth/login',
+                host: ['{{baseUrl}}'],
+                path: ['auth', 'login'],
+              },
+            },
+          },
+          {
+            name: 'Refresh Token',
+            request: {
+              method: 'POST',
+              url: {
+                raw: '{{baseUrl}}/auth/refresh',
+                host: ['{{baseUrl}}'],
+                path: ['auth', 'refresh'],
+              },
+            },
+          },
+          {
+            name: 'Logout',
+            request: {
+              auth: {
+                type: 'bearer',
+                bearer: [{ key: 'token', value: '{{accessToken}}' }],
+              },
+              method: 'POST',
+              url: {
+                raw: '{{baseUrl}}/auth/logout',
+                host: ['{{baseUrl}}'],
+                path: ['auth', 'logout'],
+              },
+            },
+          },
+        ],
+      },
+      {
+        name: '📝 Posts',
+        item: [
+          {
+            name: 'Get All Posts',
+            request: {
+              method: 'GET',
+              url: {
+                raw: '{{baseUrl}}/posts?limit=20',
+                host: ['{{baseUrl}}'],
+                path: ['posts'],
+              },
+            },
+          },
+          {
+            name: 'Create Post',
+            request: {
+              auth: {
+                type: 'bearer',
+                bearer: [{ key: 'token', value: '{{accessToken}}' }],
+              },
+              method: 'POST',
+              url: {
+                raw: '{{baseUrl}}/posts',
+                host: ['{{baseUrl}}'],
+                path: ['posts'],
+              },
+            },
+          },
+        ],
+      },
+      {
+        name: '💬 Comments',
+        item: [
+          {
+            name: 'Get Comments',
+            request: {
+              method: 'GET',
+              url: {
+                raw: '{{baseUrl}}/comments/post/{{postId}}?limit=5',
+                host: ['{{baseUrl}}'],
+                path: ['comments', 'post', '{{postId}}'],
+              },
+            },
+          },
+          {
+            name: 'Create Comment',
+            request: {
+              auth: {
+                type: 'bearer',
+                bearer: [{ key: 'token', value: '{{accessToken}}' }],
+              },
+              method: 'POST',
+              url: {
+                raw: '{{baseUrl}}/comments',
+                host: ['{{baseUrl}}'],
+                path: ['comments'],
+              },
+            },
+          },
+        ],
+      },
+    ],
+  };
 
-  // Register global HTTP error filter for downstream service errors
-  app.useGlobalFilters(new HttpErrorFilter());
 
-  // Setup documentation (separate function for clean bootstrap)
-  setupDocumentation(app);
-
-  const port = process.env.PORT || 3000;
-  await app.listen(port);
-  Logger.log(
-    `🚀 Application is running on: http://localhost:${port}/${globalPrefix}`,
+  const collectionPath = path.join(
+    postmanDir,
+    'Distributed Fullstack API.postman_collection.json',
   );
-  Logger.log(
-    `📄 OpenAPI Documentation: http://localhost:${port}/docs`,
-  );
+  fs.writeFileSync(collectionPath, JSON.stringify(postmanCollection, null, 2));
 }
-
-bootstrap();

@@ -16,17 +16,13 @@ export const DEAD_LETTER_EXCHANGE = 'dlx';
 export const POST_DLQ = 'post.dlq';
 export const COMMENT_DLQ = 'comment.dlq';
 
-// Queue options
+// Queue options (must match consumer settings)
 export const POST_CREATE_QUEUE_OPTIONS = {
   durable: true, // Survive broker restarts
-  deadLetterExchange: DEAD_LETTER_EXCHANGE,
-  messageTtl: 86400000, // 24 hours TTL
 };
 
 export const COMMENT_CREATE_QUEUE_OPTIONS = {
   durable: true, // Survive broker restarts
-  deadLetterExchange: DEAD_LETTER_EXCHANGE,
-  messageTtl: 86400000, // 24 hours TTL
 };
 
 // Environment variable keys

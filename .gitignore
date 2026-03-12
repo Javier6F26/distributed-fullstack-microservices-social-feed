@@ -48,3 +48,6 @@ test-output
 __screenshots__/
 *.md
 .vscode
+
+docs/*/*.json
+docs/*.json

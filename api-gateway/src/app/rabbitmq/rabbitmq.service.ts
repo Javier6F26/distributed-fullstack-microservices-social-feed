@@ -10,6 +10,7 @@ import {
   COMMENT_CREATE_QUEUE_OPTIONS,
 } from './rabbitmq.constants';
 import { PostCreateMessage, CommentCreateMessage } from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
+import { Observable } from 'rxjs';
 
 /**
  * RabbitMQ service for producing messages to queues.
@@ -65,42 +66,25 @@ export class RabbitmqService implements OnModuleInit {
 
   /**
    * Publish a post creation message to the queue.
+   * Uses emit() for fire-and-forget queue messages.
    * @param message - PostCreateMessage payload
-   * @returns Promise<boolean> - true if successfully published
    */
-  async publishPostCreate(message: PostCreateMessage): Promise<boolean> {
-    try {
-      const isPublished = await this.postClient.send(POST_CREATE_QUEUE, message).toPromise();
-      this.logger.log(`📤 Published post creation message to ${POST_CREATE_QUEUE}`);
-      this.logger.debug(`Message payload: ${JSON.stringify(message)}`);
-      return isPublished;
-    } catch (error) {
-      this.logger.error('Failed to publish post creation message:', (error as Error).message);
-      throw error;
-    }
+  publishPostCreate(message: PostCreateMessage): Observable<any> {
+    this.logger.log(`📤 Publishing post creation message to ${POST_CREATE_QUEUE}`);
+    return this.postClient.emit(POST_CREATE_QUEUE, message);
   }
 
   /**
    * Publish a comment creation message to the queue.
+   * Uses emit() for fire-and-forget queue messages.
    * @param message - CommentCreateMessage payload
-   * @returns Promise<boolean> - true if successfully published
    */
-  async publishCommentCreate(message: CommentCreateMessage): Promise<boolean> {
-    try {
-      const isPublished = await this.commentClient.send(COMMENT_CREATE_QUEUE, message).toPromise();
-      this.logger.log(`📤 Published comment creation message to ${COMMENT_CREATE_QUEUE}`);
-      this.logger.debug(`Message payload: ${JSON.stringify(message)}`);
-      return isPublished;
-    } catch (error) {
-      this.logger.error('Failed to publish comment creation message:', (error as Error).message);
-      throw error;
-    }
+  publishCommentCreate(message: CommentCreateMessage): Observable<any> {
+    this.logger.log(`📤 Publishing comment creation message to ${COMMENT_CREATE_QUEUE}`);
+    this.logger.debug(`Message payload: ${JSON.stringify(message)}`);
+    // Use the queue name as the pattern for emit()
+    return this.commentClient.emit(COMMENT_CREATE_QUEUE, message);
   }
 
-  /**
-   * Check if RabbitMQ clients are connected.
-   */
-  isConnected(): boolean {
-    return this.postClient !== undefined && this.commentClient !== undefined;
-  }
+
 }

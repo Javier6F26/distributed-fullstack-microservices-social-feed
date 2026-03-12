@@ -99,33 +99,15 @@ export class CommentsController {
     }
 
     try {
-      const userId = (req as any).user?.userId;
-      const username = (req as any).user?.username;
-      const avatar = (req as any).user?.avatar;
-
-      if (!userId) {
-        return {
-          success: false,
-          message: 'User ID not found in token',
-          status: HttpStatus.UNAUTHORIZED,
-        };
-      }
-
-      if (!username) {
-        return {
-          success: false,
-          message: 'Username not found in token',
-          status: HttpStatus.UNAUTHORIZED,
-        };
-      }
+      const username = (req as any).user?.username || 'Anonymous';
+      const email = (req as any).user?.email || 'anonymous@example.com';
 
       const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
       const message: CommentCreateMessage = {
         postId: dto.postId,
-        userId,
-        authorUsername: username,
-        authorAvatar: avatar,
+        name: username,
+        email: email,
         body: dto.body,
         createdAt: new Date().toISOString(),
         tempId,
@@ -140,7 +122,6 @@ export class CommentsController {
           _id: tempId,
           ...message,
           pending: true,
-          deleted: false,
         } as any,
       };
     } catch (error) {

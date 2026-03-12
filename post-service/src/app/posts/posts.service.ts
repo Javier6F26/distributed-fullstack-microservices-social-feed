@@ -20,18 +20,20 @@ export class PostsService {
   /**
    * Create post from RabbitMQ queue message.
    * Called by RabbitmqController when consuming messages.
-   * 
+   *
    * @param message - PostCreateMessage from queue
    * @returns Created post document
    */
   async createPostFromQueue(message: PostCreateMessage): Promise<PostDocument> {
     const post = new this.postModel({
-      userId: message.userId,
+      authorId: message.userId,
+      author: message.author,
       title: message.title,
       body: message.body,
-      createdAt: message.createdAt || new Date().toISOString(),
+      createdAt: message.createdAt || new Date(),
       commentCount: 0,
       deleted: false,
+      recentComments: [],
     });
 
     return await post.save();
@@ -76,10 +78,10 @@ export class PostsService {
     // Add search query if provided
     if (searchDto.q && searchDto.q.trim()) {
       const searchTerm = searchDto.q.trim();
-      // Case-insensitive regex search on title and content
+      // Case-insensitive regex search on title and body
       query.$or = [
         { title: { $regex: searchTerm, $options: 'i' } },
-        { content: { $regex: searchTerm, $options: 'i' } },
+        { body: { $regex: searchTerm, $options: 'i' } },
       ];
     }
 

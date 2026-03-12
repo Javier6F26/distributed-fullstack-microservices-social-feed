@@ -5,27 +5,26 @@
 
 import { Logger, INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app/app.module';
 
 /**
  * Setup Swagger/OpenAPI documentation
- * Separated from bootstrap to keep it clean
- * Note: No /api prefix - this service serves docs at /docs directly
  */
 function setupDocumentation(app: INestApplication): void {
   const config = new DocumentBuilder()
     .setTitle('Post Service - Distributed Fullstack Microservices')
     .setDescription(`
       Post management microservice for content creation and retrieval.
-      
+
       ## Features
       - Create, read, update, delete posts
       - Full-text search
       - Date-based filtering
       - Cursor-based pagination
       - Post anonymization on user deletion
-      
+
       ## Caching
       Posts are cached using Redis for improved performance.
     `)
@@ -45,7 +44,7 @@ function setupDocumentation(app: INestApplication): void {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  
+
   // Serve Swagger UI at /docs (no /api prefix)
   SwaggerModule.setup('docs', app, document, {
     swaggerOptions: {
@@ -71,13 +70,29 @@ function setupDocumentation(app: INestApplication): void {
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  // Setup documentation (separate function for clean bootstrap)
-  setupDocumentation(app);
-
+  // HTTP server for REST API
   const port = process.env.PORT || 3002;
   await app.listen(port);
   Logger.log(`🚀 Application is running on: http://localhost:${port}`);
   Logger.log(`📄 OpenAPI Documentation: http://localhost:${port}/docs`);
+
+  // RabbitMQ microservice for consuming messages
+  const rabbitmqUri = process.env.RABBITMQ_URI || 'amqp://localhost:5672';
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.RMQ,
+    options: {
+      urls: [rabbitmqUri],
+      queue: 'post.create',
+      queueOptions: {
+        durable: true,
+      },
+    },
+  });
+
+  await app.startAllMicroservices();
+  Logger.log(`📬 RabbitMQ microservice started - listening on queue: post.create`);
+
+  setupDocumentation(app);
 }
 
 bootstrap();
