@@ -1,0 +1,48 @@
+<div class="modal-overlay" (click)="onClose()" (keydown.enter)="onClose()" (keydown.space)="onClose()" tabindex="0" role="button" aria-label="Close modal">
+  <div class="modal-container" (click)="onModalClick($event)" (keydown.enter)="onClose()" (keydown.space)="onClose()" tabindex="0" role="button" aria-label="Close modal">
+    <!-- Close Button -->
+    <button class="close-btn" (click)="onClose()" (keydown.enter)="onClose()" (keydown.space)="onClose()" aria-label="Close modal">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+
+    <!-- Tab Navigation -->
+    <div class="tab-navigation">
+      <button
+        class="tab-btn"
+        [class.active]="activeTab() === 'login'"
+        (click)="switchToLogin()"
+        (keydown.enter)="switchToLogin()"
+        (keydown.space)="switchToLogin()"
+      >
+        Sign In
+      </button>
+      <button
+        class="tab-btn"
+        [class.active]="activeTab() === 'register'"
+        (click)="switchToRegister()"
+        (keydown.enter)="switchToRegister()"
+        (keydown.space)="switchToRegister()"
+      >
+        Create Account
+      </button>
+    </div>
+
+    <!-- Tab Content -->
+    <div class="tab-content">
+      @if (activeTab() === 'login') {
+        <app-login-form
+          (loginSuccess)="onLoginSuccess()"
+          (switchToRegister)="switchToRegister()"
+          (forgotPassword)="onForgotPassword()"
+        />
+      } @else if (activeTab() === 'register') {
+        <app-registration-form
+          (registrationSuccess)="onRegistrationSuccess()"
+          (switchToLogin)="switchToLogin()"
+        />
+      }
+    </div>
+  </div>
+</div>

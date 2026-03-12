@@ -1,0 +1,32 @@
+<div class="comment-card" [class.pending]="comment.pending">
+  <div class="comment-header">
+    <div class="comment-author">
+      <span class="author-name">{{ comment.authorUsername || comment.author || 'Anonymous' }}</span>
+      @if (comment.pending) {
+        <span class="pending-badge" title="Posting...">
+          <svg class="spinner-mini" viewBox="0 0 24 24" width="12" height="12">
+            <circle class="path" cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="25, 25" stroke-linecap="round"/>
+          </svg>
+          Posting...
+        </span>
+      }
+      @if (comment.isEdited) {
+        <span class="edited-badge">(edited)</span>
+      }
+    </div>
+    <span class="comment-time">{{ getRelativeTime(comment.createdAt) }}</span>
+  </div>
+
+  <div class="comment-body">
+    {{ comment.body || comment.text }}
+  </div>
+
+  <div class="comment-footer">
+    <button class="comment-action" title="Like">
+      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+      </svg>
+      <span>{{ comment.likes || 0 }}</span>
+    </button>
+  </div>
+</div>

@@ -1,0 +1,155 @@
+<div class="registration-form">
+  <h2 class="form-title">Create Account</h2>
+  <p class="form-subtitle">Join our community in seconds</p>
+
+  <form (ngSubmit)="onSubmit()" #registrationForm="ngForm">
+    <!-- Username Field -->
+    <div class="form-group">
+      <label for="username">Username</label>
+      <input
+        type="text"
+        id="username"
+        name="username"
+        [(ngModel)]="username"
+        (blur)="validateUsername()"
+        [class.error]="errors().username"
+        placeholder="Choose a username"
+        required
+        minlength="3"
+        maxlength="30"
+        pattern="^[a-zA-Z0-9_]+$"
+      />
+      @if (errors().username) {
+        <span class="error-message">{{ errors().username }}</span>
+      }
+      @if (!errors().username && username().length >= 3) {
+        <span class="success-message">✓ Username available</span>
+      }
+    </div>
+
+    <!-- Email Field -->
+    <div class="form-group">
+      <label for="email">Email</label>
+      <input
+        type="email"
+        id="email"
+        name="email"
+        [(ngModel)]="email"
+        (blur)="validateEmail()"
+        [class.error]="errors().email"
+        placeholder="your@email.com"
+        required
+      />
+      @if (errors().email) {
+        <span class="error-message">{{ errors().email }}</span>
+      }
+    </div>
+
+    <!-- Password Field -->
+    <div class="form-group">
+      <label for="password">Password</label>
+      <div class="password-input-wrapper">
+        <input
+          [type]="showPassword() ? 'text' : 'password'"
+          id="password"
+          name="password"
+          [(ngModel)]="password"
+          (blur)="validatePassword()"
+          [class.error]="errors().password"
+          placeholder="Create a strong password"
+          required
+        />
+        <button
+          type="button"
+          class="toggle-password"
+          (click)="showPassword.set(!showPassword())"
+          tabindex="-1"
+        >
+          {{ showPassword() ? '👁️' : '👁️‍🗨️' }}
+        </button>
+      </div>
+      @if (errors().password) {
+        <span class="error-message">{{ errors().password }}</span>
+      }
+
+      <!-- Password Strength Indicator -->
+      @if (password()) {
+        <div class="password-strength">
+          <div class="strength-bar">
+            <div
+              class="strength-fill"
+              [style.width.%]="(passwordStrength() + 1) * 20"
+              [style.background]="getPasswordStrengthColor()"
+            ></div>
+          </div>
+          <span class="strength-label">{{ getPasswordStrengthLabel() }}</span>
+        </div>
+
+        <!-- Password Requirements -->
+        <ul class="password-requirements">
+          <li [class.met]="passwordRequirements().hasMinLength">
+            {{ passwordRequirements().hasMinLength ? '✓' : '○' }} At least 8 characters
+          </li>
+          <li [class.met]="passwordRequirements().hasUppercase">
+            {{ passwordRequirements().hasUppercase ? '✓' : '○' }} One uppercase letter
+          </li>
+          <li [class.met]="passwordRequirements().hasLowercase">
+            {{ passwordRequirements().hasLowercase ? '✓' : '○' }} One lowercase letter
+          </li>
+          <li [class.met]="passwordRequirements().hasNumber">
+            {{ passwordRequirements().hasNumber ? '✓' : '○' }} One number
+          </li>
+          <li [class.met]="passwordRequirements().hasSpecialChar">
+            {{ passwordRequirements().hasSpecialChar ? '✓' : '○' }} One special character (&#64;$!%*?&)
+          </li>
+        </ul>
+      }
+    </div>
+
+    <!-- Confirm Password Field -->
+    <div class="form-group">
+      <label for="confirmPassword">Confirm Password</label>
+      <input
+        type="password"
+        id="confirmPassword"
+        name="confirmPassword"
+        [(ngModel)]="confirmPassword"
+        (blur)="validateConfirmPassword()"
+        [class.error]="errors().confirmPassword"
+        placeholder="Confirm your password"
+        required
+      />
+      @if (errors().confirmPassword) {
+        <span class="error-message">{{ errors().confirmPassword }}</span>
+      }
+      @if (!errors().confirmPassword && confirmPassword() && password() === confirmPassword()) {
+        <span class="success-message">✓ Passwords match</span>
+      }
+    </div>
+
+    <!-- General Error -->
+    @if (errors().general) {
+      <div class="general-error">
+        {{ errors().general }}
+      </div>
+    }
+
+    <!-- Submit Button -->
+    <button type="submit" class="submit-btn" [disabled]="isLoading()">
+      @if (isLoading()) {
+        <span class="loading-spinner"></span>
+        Creating account...
+      } @else {
+        Create Account
+      }
+    </button>
+
+    <!-- Switch to Login -->
+    <p class="switch-form">
+      Already have an account?
+      <button type="button" class="switch-link" (click)="switchToLogin.emit()">
+        Sign in
+      </button>
+    </p>
+  </form>
+</div>

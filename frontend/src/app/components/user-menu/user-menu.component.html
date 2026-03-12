@@ -1,0 +1,94 @@
+@if (isAuthenticated()) {
+  <div class="user-menu">
+    <!-- User trigger button -->
+    <button
+      class="user-trigger"
+      (click)="toggleMenu()"
+      (keydown.escape)="closeMenu()"
+      [attr.aria-expanded]="isMenuOpen()"
+      [attr.aria-label]="user() ? 'User menu for ' + user()?.username : 'User menu'"
+      aria-haspopup="true"
+      type="button">
+      <div class="user-avatar" aria-hidden="true">
+        <!-- Avatar placeholder or initials -->
+        <span class="avatar-initials">{{ getUserInitials() }}</span>
+      </div>
+      @if (user()) {
+        <span class="username">{{ user()?.username }}</span>
+      }
+    </button>
+
+    <!-- Dropdown menu -->
+    @if (isMenuOpen()) {
+      <div
+        class="menu-dropdown"
+        role="menu"
+        [attr.aria-label]="'User menu'"
+        (click)="$event.stopPropagation()"
+        (keydown.escape)="closeMenu()"
+        tabindex="0">
+        <div class="menu-header">
+          <div class="menu-user-info">
+            <div class="menu-avatar" aria-hidden="true">
+              <span class="avatar-initials">{{ getUserInitials() }}</span>
+            </div>
+            <div class="menu-user-details">
+              @if (user()) {
+                <div class="menu-username">{{ user()?.username }}</div>
+              }
+              @if (user()) {
+                <div class="menu-email">{{ user()?.email }}</div>
+              }
+            </div>
+          </div>
+        </div>
+
+        <div class="menu-divider"></div>
+
+        <div class="menu-body">
+          <a
+            class="menu-item settings-link"
+            routerLink="/settings/account"
+            (click)="closeMenu()"
+            type="button"
+            role="menuitem">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+            <span>Account Settings</span>
+          </a>
+
+          <button
+            class="menu-item logout-btn"
+            (click)="onLogout()"
+            [disabled]="isLoggingOut()"
+            type="button"
+            role="menuitem"
+            [attr.aria-busy]="isLoggingOut()">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <span>
+              {{ isLoggingOut() ? 'Logging out...' : 'Logout' }}
+            </span>
+            @if (isLoggingOut()) {
+              <span class="loading-spinner" aria-hidden="true">
+                <svg class="spinner" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="31.4 31.4" stroke-linecap="round"/>
+                </svg>
+              </span>
+            }
+          </button>
+        </div>
+      </div>
+    }
+
+    <!-- Backdrop for mobile -->
+    @if (isMenuOpen()) {
+      <div class="menu-backdrop" (click)="closeMenu()" (keydown.escape)="closeMenu()" tabindex="0" role="button" aria-label="Close menu"></div>
+    }
+  </div>
+}

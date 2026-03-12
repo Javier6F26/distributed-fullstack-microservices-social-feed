@@ -1,0 +1,92 @@
+<div class="login-form">
+  <h2 class="form-title">Welcome Back</h2>
+  <p class="form-subtitle">Sign in to continue to your account</p>
+
+  <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
+    <!-- Identifier Field (Email/Username) -->
+    <div class="form-group">
+      <label for="identifier">Email or Username</label>
+      <input
+        type="text"
+        id="identifier"
+        name="identifier"
+        [(ngModel)]="identifier"
+        (blur)="validateIdentifier()"
+        [class.error]="errors().identifier"
+        placeholder="Enter your email or username"
+        required
+      />
+      @if (errors().identifier) {
+        <span class="error-message">{{ errors().identifier }}</span>
+      }
+    </div>
+
+    <!-- Password Field -->
+    <div class="form-group">
+      <label for="password">Password</label>
+      <div class="password-input-wrapper">
+        <input
+          [type]="showPassword() ? 'text' : 'password'"
+          id="password"
+          name="password"
+          [(ngModel)]="password"
+          (blur)="validatePassword()"
+          [class.error]="errors().password"
+          placeholder="Enter your password"
+          required
+        />
+        <button
+          type="button"
+          class="toggle-password"
+          (click)="showPassword.set(!showPassword())"
+          tabindex="-1"
+        >
+          {{ showPassword() ? '👁️' : '👁️‍🗨️' }}
+        </button>
+      </div>
+      @if (errors().password) {
+        <span class="error-message">{{ errors().password }}</span>
+      }
+    </div>
+
+    <!-- Remember Me & Forgot Password -->
+    <div class="form-options">
+      <label class="remember-me">
+        <input
+          type="checkbox"
+          name="rememberMe"
+          [(ngModel)]="rememberMe"
+        />
+        <span>Remember me</span>
+      </label>
+      <button type="button" class="forgot-link" (click)="forgotPassword.emit()">
+        Forgot password?
+      </button>
+    </div>
+
+    <!-- General Error -->
+    @if (errors().general) {
+      <div class="general-error">
+        {{ errors().general }}
+      </div>
+    }
+
+    <!-- Submit Button -->
+    <button type="submit" class="submit-btn" [disabled]="isLoading()">
+      @if (isLoading()) {
+        <span class="loading-spinner"></span>
+        Signing in...
+      } @else {
+        Sign In
+      }
+    </button>
+
+    <!-- Switch to Register -->
+    <p class="switch-form">
+      Don't have an account?
+      <button type="button" class="switch-link" (click)="switchToRegister.emit()">
+        Sign up
+      </button>
+    </p>
+  </form>
+</div>

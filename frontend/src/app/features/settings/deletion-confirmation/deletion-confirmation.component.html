@@ -1,0 +1,57 @@
+<div class="modal-overlay" (click)="onCancel()" (keydown.enter)="onCancel()" (keydown.space)="onCancel()" tabindex="0" role="button" aria-label="Cancel deletion">
+  <div class="modal-dialog" (click)="$event.stopPropagation()" (keydown.enter)="onCancel()" (keydown.space)="onCancel()" tabindex="0" role="button" aria-label="Cancel deletion">
+    <div class="modal-header">
+      <h2>Delete Account?</h2>
+      <button type="button" class="close-btn" (click)="onCancel()" (keydown.enter)="onCancel()" (keydown.space)="onCancel()" aria-label="Close">
+        ✕
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="warning-box">
+        <span class="warning-icon">⚠️</span>
+        <h3>This action cannot be undone</h3>
+      </div>
+
+      <p class="confirmation-text">
+        Are you sure you want to request deletion of your account? This will initiate the following:
+      </p>
+
+      <ul class="deletion-consequences">
+        <li>
+          <strong>Immediate logout:</strong> You will be logged out immediately and your session will be terminated
+        </li>
+        <li>
+          <strong>72-hour window:</strong> Your account will be scheduled for permanent deletion within 72 hours
+        </li>
+        <li>
+          <strong>Data anonymization:</strong> All your posts and comments will be anonymized (author marked as "Deleted User")
+        </li>
+        <li>
+          <strong>Personal data removal:</strong> Your username, email, and password will be permanently deleted
+        </li>
+        <li>
+          <strong>Confirmation email:</strong> You will receive an email confirmation at {{ userEmail() }}
+        </li>
+        <li>
+          <strong>Cancellation period:</strong> You can cancel this request within 72 hours by contacting support
+        </li>
+      </ul>
+
+      <div class="final-warning">
+        <p>
+          <strong>Clicking "Delete My Account" will immediately log you out and schedule your account for deletion.</strong>
+        </p>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="cancel-btn" (click)="onCancel()">
+        Cancel
+      </button>
+      <button type="button" class="confirm-btn" (click)="onConfirm()">
+        Delete My Account
+      </button>
+    </div>
+  </div>
+</div>

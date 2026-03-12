@@ -1,0 +1,44 @@
+<div class="comment-list-container">
+  <!-- Comment Input (only for authenticated users) -->
+  @if (authService.isAuthenticated()) {
+    <div class="comment-input-section">
+      <app-comment-input
+        [postId]="postId"
+        (commentSubmitted)="onCommentSubmitted($event)"
+        (commentFailed)="onCommentFailed($event)"
+      />
+    </div>
+  } @else {
+    <div class="auth-prompt">
+      <p>
+        <a [routerLink]="['/auth/login']" class="login-link">Log in</a> or
+        <a [routerLink]="['/auth/register']" class="register-link">register</a> to add a comment
+      </p>
+    </div>
+  }
+
+  <!-- Comments Header -->
+  <div class="comments-header">
+    <h3 class="comments-title">
+      Comments ({{ displayComments().length }})
+    </h3>
+  </div>
+
+  <!-- Comments List -->
+  <div class="comments-list">
+    @if (isLoading()) {
+      <div class="loading-state">
+        <div class="spinner-large"></div>
+        <p>Loading comments...</p>
+      </div>
+    } @else if (displayComments().length === 0) {
+      <div class="empty-state">
+        <p>No comments yet. Be the first to comment!</p>
+      </div>
+    } @else {
+      @for (comment of displayComments(); track trackByComment($index, comment)) {
+        <app-comment-card [comment]="comment" />
+      }
+    }
+  </div>
+</div>

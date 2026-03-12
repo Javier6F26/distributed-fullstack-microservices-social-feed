@@ -1,0 +1,54 @@
+<div class="flex flex-col sm:flex-row gap-4 items-stretch sm:items-end">
+  <div class="flex-1   max-w-md-[240px]">
+    <label for="start-date" class="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+    <input
+      type="date"
+      id="start-date"
+      [(ngModel)]="startDate"
+      placeholder="dd/mm/yyyy"
+      (ngModelChange)="onDateChange()"
+      [max]="endDate()"
+      [ngClass]="startDate()? 'border-purple-500 ring-2 ring-purple-200 text-gray-900' : 'border-gray-300 text-gray-400'"
+       class="w-full pl-6 pr-6 py-3 border border-gray-300 rounded-xl  focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent  bg-white shadow-sm transition-all"
+      aria-label="Filter start date"
+    />
+  </div>
+
+  <div class="flex-1   max-w-md-[240px]">
+    <label for="end-date" class="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+    <input
+      type="date"
+      id="end-date"
+      [(ngModel)]="endDate"
+      placeholder="dd/mm/yyyy"
+      (ngModelChange)="onDateChange()"
+      [min]="startDate()"
+      [ngClass]="endDate()? 'border-purple-500 ring-2 ring-purple-200 text-gray-900' : 'border-gray-300 text-gray-400'"
+       class="w-full pl-6 pr-6 py-3 border border-gray-300 rounded-xl  focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent  bg-white shadow-sm transition-all"
+     aria-label="Filter end date"
+    />
+  </div>
+
+  @if (startDate() || endDate()) {
+    <button
+      (click)="clearDates()"
+      class="self-end p-2 text-gray-400 hover:text-gray-600 focus:outline-none transition-colors"
+      aria-label="Clear date filter"
+    >
+      <svg
+        class="w-5 h-5"
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M6 18L18 6M6 6l12 12"
+        />
+      </svg>
+    </button>
+  }
+</div>

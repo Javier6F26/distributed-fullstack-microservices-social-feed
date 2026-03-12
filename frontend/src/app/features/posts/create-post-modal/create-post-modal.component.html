@@ -1,0 +1,103 @@
+@if (showModal()) {
+  <div class="modal-overlay" (click)="closeModal()" (keydown.enter)="closeModal()" (keydown.space)="closeModal()" tabindex="0" role="button" aria-label="Close modal">
+    <div class="modal-content" (click)="$event.stopPropagation()" (keydown.enter)="closeModal()" (keydown.space)="closeModal()" tabindex="0" role="button" aria-label="Close modal">
+      <!-- Modal Header -->
+      <div class="modal-header">
+        <h2 class="modal-title">Create Post</h2>
+        <button class="modal-close" (click)="closeModal()" (keydown.enter)="closeModal()" (keydown.space)="closeModal()" aria-label="Close modal">
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="24" height="24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body">
+        <form [formGroup]="postForm" (ngSubmit)="onSubmit()">
+          <!-- Title Field -->
+          <div class="form-group">
+            <label for="title" class="form-label">Title</label>
+            <input
+              id="title"
+              type="text"
+              formControlName="title"
+              class="form-input"
+              [class.error]="title?.invalid && title?.touched"
+              placeholder="Enter post title"
+              maxlength="100"
+            />
+            @if (title?.invalid && title?.touched) {
+              <div class="form-error">
+                @if (title?.errors?.['required']) {
+                  <small>Title is required</small>
+                }
+                @if (title?.errors?.['minlength']) {
+                  <small>Title must be at least 5 characters</small>
+                }
+                @if (title?.errors?.['maxlength']) {
+                  <small>Title must not exceed 100 characters</small>
+                }
+              </div>
+            }
+            <div class="char-counter">{{ title?.value?.length || 0 }}/100</div>
+          </div>
+
+          <!-- Body Field -->
+          <div class="form-group">
+            <label for="body" class="form-label">Body</label>
+            <textarea
+              id="body"
+              formControlName="body"
+              class="form-textarea"
+              [class.error]="body?.invalid && body?.touched"
+              placeholder="What's on your mind?"
+              rows="6"
+              maxlength="5000"
+              (input)="autoResize($event)"
+            ></textarea>
+            @if (body?.invalid && body?.touched) {
+              <div class="form-error">
+                @if (body?.errors?.['required']) {
+                  <small>Body is required</small>
+                }
+                @if (body?.errors?.['minlength']) {
+                  <small>Body must be at least 10 characters</small>
+                }
+                @if (body?.errors?.['maxlength']) {
+                  <small>Body must not exceed 5000 characters</small>
+                }
+              </div>
+            }
+            <div class="char-counter">{{ body?.value?.length || 0 }}/5000</div>
+          </div>
+
+          <!-- Modal Footer -->
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              (click)="closeModal()"
+              [disabled]="isSubmitting()"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              class="btn btn-primary"
+              [disabled]="postForm.invalid || isSubmitting()"
+            >
+              @if (isSubmitting()) {
+                <svg class="spinner" viewBox="0 0 24 24" width="20" height="20">
+                  <circle class="path" cx="12" cy="12" r="10" fill="none" stroke-width="3" stroke="currentColor" stroke-dasharray="31.4, 31.4" stroke-linecap="round"/>
+                </svg>
+                <span>Posting...</span>
+              } @else {
+                <span>Post</span>
+              }
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+}

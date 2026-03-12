@@ -1,0 +1,13 @@
+  <app-navbar (loginClicked)="onLoginClicked()"></app-navbar>
+<app-notification-container></app-notification-container>
+<main class="bg-gray-50 min-h-screen">
+  <app-post-feed></app-post-feed>
+</main>
+
+<!-- Auth Modal -->
+@if (showAuthModal) {
+  <app-auth-modal
+    (closeModal)="onCloseAuthModal()"
+    (authSuccess)="onAuthSuccess()"
+  />
+}

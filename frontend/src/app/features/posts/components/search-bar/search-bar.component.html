@@ -1,0 +1,50 @@
+<div class="w-full max-w-2xl">
+    <label for="end-date" class="block text-sm font-medium text-gray-700 mb-1">Search query</label>
+  <div class="relative">
+    <input
+      type="text"
+      placeholder="Search posts..."
+      [(ngModel)]="searchQuery"
+      (ngModelChange)="onSearchChange($event)"
+      [ngClass]="searchQuery()? 'border-purple-500 ring-2 ring-purple-200 text-gray-900' : 'border-gray-300 text-gray-400'"
+      class="w-full pl-12 pr-12 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900 placeholder-gray-400 bg-white shadow-sm transition-all"
+      aria-label="Search posts"
+    />
+    <svg
+      class="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400"
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+    >
+      <path
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="2"
+        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+      />
+    </svg>
+    @if (searchQuery()) {
+      <button
+        (click)="clearSearch()"
+        class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none transition-colors"
+        aria-label="Clear search"
+      >
+        <svg
+          class="w-5 h-5"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M6 18L18 6M6 6l12 12"
+          />
+        </svg>
+      </button>
+    }
+  </div>
+</div>

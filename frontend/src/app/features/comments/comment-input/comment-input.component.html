@@ -1,0 +1,49 @@
+<div class="comment-input-container">
+  <form [formGroup]="commentForm" (ngSubmit)="onSubmit()">
+    <!-- Comment Textarea -->
+    <div class="form-group">
+      <textarea
+        formControlName="body"
+        class="comment-textarea"
+        [class.error]="body?.invalid && body?.touched"
+        placeholder="Add a comment..."
+        rows="3"
+        maxlength="1000"
+        (input)="autoResize($event)"
+      ></textarea>
+
+      <!-- Character Counter & Error -->
+      <div class="input-footer">
+        @if (body?.invalid && body?.touched) {
+          <div class="form-error">
+            @if (body?.errors?.['required']) {
+              <small>Comment is required</small>
+            }
+            @if (body?.errors?.['maxlength']) {
+              <small>Comment must not exceed 1000 characters</small>
+            }
+          </div>
+        }
+        <div class="char-counter">{{ body?.value?.length || 0 }}/1000</div>
+      </div>
+    </div>
+
+    <!-- Submit Button -->
+    <div class="form-actions">
+      <button
+        type="submit"
+        class="btn btn-primary"
+        [disabled]="commentForm.invalid || isSubmitting()"
+      >
+        @if (isSubmitting()) {
+          <svg class="spinner" viewBox="0 0 24 24" width="16" height="16">
+            <circle class="path" cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4, 31.4" stroke-linecap="round"/>
+          </svg>
+          <span>Posting...</span>
+        } @else {
+          <span>Comment</span>
+        }
+      </button>
+    </div>
+  </form>
+</div>

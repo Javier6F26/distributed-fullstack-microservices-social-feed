@@ -1,0 +1,68 @@
+<div class="account-settings">
+  <div class="settings-container">
+    <h1>Account Settings</h1>
+    <p class="subtitle">Manage your account information and preferences</p>
+
+    <!-- Account Information Section -->
+    <section class="settings-section">
+      <h2>Account Information</h2>
+      <div class="info-card">
+        <div class="info-row">
+          <span class="label">Username</span>
+          <span class="value">{{ getUsername() }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Email</span>
+          <span class="value">{{ getEmail() }}</span>
+        </div>
+        <div class="info-row">
+          <span class="label">Member Since</span>
+          <span class="value">{{ getMemberSince() }}</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Danger Zone Section -->
+    <section class="settings-section danger-zone">
+      <h2>
+        <span class="warning-icon">⚠️</span>
+        Danger Zone
+      </h2>
+      <div class="danger-card">
+        <h3>Delete Account</h3>
+        <p class="warning-text">
+          <strong>Warning:</strong> This action is irreversible. Once your account deletion is processed (within 72 hours), 
+          all your personal data will be permanently removed from our system.
+        </p>
+        <ul class="consequences-list">
+          <li>You will be logged out immediately</li>
+          <li>All your posts and comments will be anonymized</li>
+          <li>Your username and email will be permanently removed</li>
+          <li>You will receive a confirmation email</li>
+          <li>You have 72 hours to cancel the deletion request</li>
+        </ul>
+        <button
+          type="button"
+          class="delete-btn"
+          (click)="openDeleteDialog()"
+          [disabled]="isLoading"
+        >
+          @if (isLoading) {
+            <span class="loading-spinner"></span>
+            Processing...
+          } @else {
+            Delete My Account
+          }
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Deletion Confirmation Dialog -->
+  @if (showDeleteDialog) {
+    <app-deletion-confirmation
+      (confirmed)="onDeletionConfirmed()"
+      (cancelled)="closeDeleteDialog()"
+    />
+  }
+</div>
