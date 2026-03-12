@@ -36,6 +36,9 @@ export class Post {
   @Prop({ required: true, default: () => new Date() })
   createdAt: Date;
 
+  @Prop({ type: Date })
+  updatedAt?: Date;
+
   @Prop({ required: true, default: 0 })
   commentCount: number;
 

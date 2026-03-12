@@ -406,6 +406,11 @@ function generatePostmanCollection(): void {
                     '            pm.expect(comment).to.have.property("body");',
                     '            pm.expect(comment).to.have.property("createdAt");',
                     '        });',
+                    '        // Save first comment ID for update/delete tests',
+                    '        pm.collectionVariables.set("commentId", comment._id);',
+                    '        console.log("✅ Saved commentId:", comment._id);',
+                    '    } else {',
+                    '        console.log("⚠️ No comments found to get commentId");',
                     '    }',
                     '}',
                   ],
@@ -482,6 +487,197 @@ function generatePostmanCollection(): void {
                     '        pm.expect(response.user).to.have.property("username");',
                     '        pm.expect(response.user).to.have.property("email");',
                     '    });',
+                    '}',
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            name: '09 - Update Post',
+            request: {
+              auth: {
+                type: 'bearer',
+                bearer: [{ key: 'token', value: '{{accessToken}}' }],
+              },
+              method: 'PUT',
+              header: [{ key: 'Content-Type', value: 'application/json' }],
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify(
+                  {
+                    title: 'Updated Test Post',
+                    body: 'Updated test content for post editing',
+                  },
+                  null,
+                  2,
+                ),
+              },
+              url: {
+                raw: '{{baseUrl}}/posts/{{postId}}',
+                host: ['{{baseUrl}}'],
+                path: ['posts', '{{postId}}'],
+              },
+            },
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: [
+                    'if (pm.response.code === 200) {',
+                    '    const response = pm.response.json();',
+                    '    pm.test("Post updated successfully", function() {',
+                    '        pm.expect(response.success).to.be.true;',
+                    '        pm.expect(response.data).to.have.property("title", "Updated Test Post");',
+                    '        pm.expect(response.data).to.have.property("body", "Updated test content for post editing");',
+                    '        pm.expect(response.data).to.have.property("updatedAt");',
+                    '    });',
+                    '}',
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            name: '10 - Update Comment',
+            request: {
+              auth: {
+                type: 'bearer',
+                bearer: [{ key: 'token', value: '{{accessToken}}' }],
+              },
+              method: 'PUT',
+              header: [{ key: 'Content-Type', value: 'application/json' }],
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify(
+                  {
+                    body: 'Updated test comment for comment editing',
+                  },
+                  null,
+                  2,
+                ),
+              },
+              url: {
+                raw: '{{baseUrl}}/comments/{{commentId}}',
+                host: ['{{baseUrl}}'],
+                path: ['comments', '{{commentId}}'],
+              },
+            },
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: [
+                    'if (pm.response.code === 200) {',
+                    '    const response = pm.response.json();',
+                    '    pm.test("Comment updated successfully", function() {',
+                    '        pm.expect(response.success).to.be.true;',
+                    '        pm.expect(response.data).to.have.property("body", "Updated test comment for comment editing");',
+                    '        pm.expect(response.data).to.have.property("updatedAt");',
+                    '    });',
+                    '}',
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            name: '11 - Delete Comment',
+            request: {
+              auth: {
+                type: 'bearer',
+                bearer: [{ key: 'token', value: '{{accessToken}}' }],
+              },
+              method: 'DELETE',
+              url: {
+                raw: '{{baseUrl}}/comments/{{commentId}}',
+                host: ['{{baseUrl}}'],
+                path: ['comments', '{{commentId}}'],
+              },
+            },
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: [
+                    'if (pm.response.code === 200) {',
+                    '    const response = pm.response.json();',
+                    '    pm.test("Comment deleted successfully", function() {',
+                    '        pm.expect(response.success).to.be.true;',
+                    '        pm.expect(response.data).to.have.property("_id", pm.collectionVariables.get("commentId"));',
+                    '    });',
+                    '    pm.collectionVariables.unset("commentId");',
+                    '}',
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            name: '12 - Delete Post',
+            request: {
+              auth: {
+                type: 'bearer',
+                bearer: [{ key: 'token', value: '{{accessToken}}' }],
+              },
+              method: 'DELETE',
+              url: {
+                raw: '{{baseUrl}}/posts/{{postId}}',
+                host: ['{{baseUrl}}'],
+                path: ['posts', '{{postId}}'],
+              },
+            },
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: [
+                    'if (pm.response.code === 200) {',
+                    '    const response = pm.response.json();',
+                    '    pm.test("Post deleted successfully", function() {',
+                    '        pm.expect(response.success).to.be.true;',
+                    '        pm.expect(response.data).to.have.property("_id", pm.collectionVariables.get("postId"));',
+                    '        pm.expect(response.data).to.have.property("deleted", true);',
+                    '        pm.expect(response.data).to.have.property("deletedAt");',
+                    '    });',
+                    '    pm.collectionVariables.unset("postId");',
+                    '}',
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            name: '13 - Logout',
+            request: {
+              auth: {
+                type: 'bearer',
+                bearer: [{ key: 'token', value: '{{accessToken}}' }],
+              },
+              method: 'POST',
+              url: {
+                raw: '{{baseUrl}}/auth/logout',
+                host: ['{{baseUrl}}'],
+                path: ['auth', 'logout'],
+              },
+            },
+            event: [
+              {
+                listen: 'test',
+                script: {
+                  type: 'text/javascript',
+                  exec: [
+                    'if (pm.response.code === 200) {',
+                    '    const response = pm.response.json();',
+                    '    pm.test("Logout successful", function() {',
+                    '        pm.expect(response.success).to.be.true;',
+                    '    });',
+                    '    pm.collectionVariables.unset("accessToken");',
+                    '    pm.collectionVariables.unset("refreshToken");',
                     '}',
                   ],
                 },

@@ -7,6 +7,8 @@ import {
   Inject,
   Param,
   Post,
+  Put,
+  Delete,
   Query,
   Req,
   UseGuards,
@@ -24,6 +26,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
 import { CreatePostDto } from './dto/create-post.dto';
+import { UpdatePostDto } from './dto/update-post.dto';
 import {
   PostCreateMessage,
   PostResponse,
@@ -308,5 +311,181 @@ export class PostsController {
       this.httpService.get(`${commentServiceUrl}/comments/post/${postId}/all`),
     );
     return response.data;
+  }
+
+  @Put(':id')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  async update(
+    @Param('id') id: string,
+    @Body() dto: UpdatePostDto,
+    @Req() req: any,
+  ): Promise<PostResponse> {
+    const postServiceUrl =
+      this.configService.get<string>('POST_SERVICE_URL') ||
+      'http://localhost:3002';
+
+    console.log('🔍 Debug - Request user:', JSON.stringify(req.user, null, 2));
+    console.log('🔍 Debug - Request headers:', req.headers);
+
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      console.log('❌ User ID not found in token. req.user:', req.user);
+      return {
+        success: false,
+        message: 'User ID not found in token',
+        status: HttpStatus.UNAUTHORIZED,
+      };
+    }
+    console.log('✅ User ID extracted:', userId);
+
+    // First, fetch the post to verify ownership
+    try {
+      const existingPost = await firstValueFrom(
+        this.httpService.get(`${postServiceUrl}/posts/${id}`),
+      );
+
+      // httpService.get returns Axios response: { data: { success: true, data: post } }
+      // So we need existingPost.data.data to get the actual post
+      const postData = existingPost.data.data;
+      const postAuthorId = postData?.authorId?.toString();
+      const currentUserId = userId?.toString();
+
+      if (!postData || postAuthorId !== currentUserId) {
+        console.log('❌ Authorization failed:', { 
+          postAuthorId, 
+          currentUserId,
+          postId: id,
+          postData,
+        });
+        return {
+          success: false,
+          message: 'Forbidden: You can only update your own posts',
+          status: HttpStatus.FORBIDDEN,
+        };
+      }
+      console.log('✅ Authorization passed for post update');
+    } catch (error: any) {
+      console.error('❌ Error fetching post for authorization:', error.message);
+      return {
+        success: false,
+        message: 'Post not found',
+        status: HttpStatus.NOT_FOUND,
+      };
+    }
+
+    // Validate DTO
+    const dtoInstance = plainToInstance(UpdatePostDto, dto);
+    const validationErrors = await validate(dtoInstance);
+
+    if (validationErrors.length > 0) {
+      const errors = validationErrors.map((error) => ({
+        field: error.property,
+        message: Object.values(error.constraints || {}).join(', '),
+      }));
+
+      return {
+        success: false,
+        message: 'Validation failed',
+        errors,
+        status: HttpStatus.BAD_REQUEST,
+      };
+    }
+
+    // Call post-service to update
+    try {
+      const response = await firstValueFrom(
+        this.httpService.put(`${postServiceUrl}/posts/${id}`, dto, {
+          headers: {
+            Authorization: req.headers.authorization,
+            'X-User-Id': userId, // Forward userId for post-service authorization
+          },
+        }),
+      );
+      console.log('✅ Post update response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Post update error:', error.response?.data || error.message);
+      return {
+        success: false,
+        message: 'Post update service temporarily unavailable',
+        status: HttpStatus.SERVICE_UNAVAILABLE,
+      };
+    }
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  async delete(@Param('id') id: string, @Req() req: any): Promise<PostResponse> {
+    const postServiceUrl =
+      this.configService.get<string>('POST_SERVICE_URL') ||
+      'http://localhost:3002';
+
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return {
+        success: false,
+        message: 'User ID not found in token',
+        status: HttpStatus.UNAUTHORIZED,
+      };
+    }
+
+    // First, fetch the post to verify ownership
+    try {
+      const existingPost = await firstValueFrom(
+        this.httpService.get(`${postServiceUrl}/posts/${id}`),
+      );
+
+      // httpService.get returns Axios response: { data: { success: true, data: post } }
+      const postData = existingPost.data.data;
+      const postAuthorId = postData?.authorId?.toString();
+      const currentUserId = userId?.toString();
+
+      if (!postData || postAuthorId !== currentUserId) {
+        console.log('❌ Authorization failed for delete:', { 
+          postAuthorId, 
+          currentUserId,
+          postId: id,
+          postData,
+        });
+        return {
+          success: false,
+          message: 'Forbidden: You can only delete your own posts',
+          status: HttpStatus.FORBIDDEN,
+        };
+      }
+      console.log('✅ Authorization passed for post delete');
+    } catch (error: any) {
+      console.error('❌ Error fetching post for delete authorization:', error.message);
+      return {
+        success: false,
+        message: 'Post not found',
+        status: HttpStatus.NOT_FOUND,
+      };
+    }
+
+    // Call post-service to delete
+    try {
+      const response = await firstValueFrom(
+        this.httpService.delete(`${postServiceUrl}/posts/${id}`, {
+          headers: {
+            Authorization: req.headers.authorization,
+            'X-User-Id': userId, // Forward userId for post-service authorization
+          },
+        }),
+      );
+      console.log('✅ Post delete response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error('❌ Post delete error:', error.response?.data || error.message);
+      return {
+        success: false,
+        message: 'Post delete service temporarily unavailable',
+        status: HttpStatus.SERVICE_UNAVAILABLE,
+      };
+    }
   }
 }

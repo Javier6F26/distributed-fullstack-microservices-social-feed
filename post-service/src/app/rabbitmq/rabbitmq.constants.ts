@@ -10,6 +10,8 @@ export const POST_CREATE_QUEUE = 'post.create';
 export const COMMENT_CREATED_EVENT = 'comment.created';
 export const COMMENT_UPDATED_EVENT = 'comment.updated';
 export const COMMENT_DELETED_EVENT = 'comment.deleted';
+export const POST_UPDATED_EVENT = 'post.updated';
+export const POST_DELETED_EVENT = 'post.deleted';
 
 // Exchange names
 export const DEAD_LETTER_EXCHANGE = 'dlx';

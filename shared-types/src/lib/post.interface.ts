@@ -9,6 +9,7 @@ export interface Post {
   title: string;
   body: string;
   createdAt: Date | string;
+  updatedAt?: Date | string;
   commentCount: number;
   deleted?: boolean;
   deletedAt?: Date | string;

@@ -4,6 +4,8 @@ import { ClientProxy, ClientProxyFactory, Transport } from '@nestjs/microservice
 import {
   RABBITMQ_URI_KEY,
   RABBITMQ_DEFAULT_URI,
+  POST_UPDATED_EVENT,
+  POST_DELETED_EVENT,
 } from './rabbitmq.constants';
 
 /**
@@ -49,6 +51,33 @@ export class RabbitmqService implements OnModuleInit {
       this.logger.log(`📤 Emitted post.created event for tempId: ${payload.tempId}`);
     } catch (error) {
       this.logger.error('Failed to emit post.created event:', error.message);
+    }
+  }
+
+  /**
+   * Emit post.updated event to event queue.
+   * @param postId - The updated post ID
+   * @param post - The updated post document
+   */
+  async emitPostUpdated(postId: string, post: any) {
+    try {
+      this.client.emit(POST_UPDATED_EVENT, { postId, post });
+      this.logger.log(`📤 Emitted post.updated event for post: ${postId}`);
+    } catch (error) {
+      this.logger.error('Failed to emit post.updated event:', error.message);
+    }
+  }
+
+  /**
+   * Emit post.deleted event to event queue.
+   * @param postId - The deleted post ID
+   */
+  async emitPostDeleted(postId: string) {
+    try {
+      this.client.emit(POST_DELETED_EVENT, { postId });
+      this.logger.log(`📤 Emitted post.deleted event for post: ${postId}`);
+    } catch (error) {
+      this.logger.error('Failed to emit post.deleted event:', error.message);
     }
   }
 }

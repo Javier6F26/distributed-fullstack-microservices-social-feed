@@ -1,16 +1,20 @@
-import { Injectable, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Post, PostDocument } from '../schemas/post.schema';
 import { SearchPostsDto } from './dto/search-posts.dto';
 import { FilterPostsDto } from './dto/filter-posts.dto';
 import { PostCreateMessage, PostComment } from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
+import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
 
 @Injectable()
 export class PostsService {
   private readonly logger = new Logger(PostsService.name);
 
-  constructor(@InjectModel(Post.name) private postModel: Model<PostDocument>) {}
+  constructor(
+    @InjectModel(Post.name) private postModel: Model<PostDocument>,
+    private readonly rabbitmqService: RabbitmqService,
+  ) {}
 
   /**
    * Validate if a string is a valid MongoDB ObjectId
@@ -70,6 +74,99 @@ export class PostsService {
     }
 
     this.logger.log(`✅ Updated post ${postId} with ${recentComments.length} recent comments`);
+  }
+
+  /**
+   * Update post by ID (edit functionality).
+   * Only updates fields provided in updates object.
+   * Automatically sets updatedAt timestamp.
+   *
+   * @param postId - The post ID to update
+   * @param updates - The updates to apply (title and/or body)
+   * @returns Updated post document
+   */
+  async updatePost(postId: string, updates: { title?: string; body?: string }): Promise<PostDocument> {
+    // Validate postId
+    if (!this.isValidObjectId(postId)) {
+      throw new BadRequestException(`Invalid postId: ${postId}`);
+    }
+
+    // Build update object with only provided fields
+    const updateData: any = {};
+    if (updates.title !== undefined) {
+      updateData.title = updates.title;
+    }
+    if (updates.body !== undefined) {
+      updateData.body = updates.body;
+    }
+
+    // Update post, Mongoose timestamps will auto-update updatedAt
+    const updatedPost = await this.postModel
+      .findOneAndUpdate(
+        { _id: postId, deleted: false },
+        { $set: updateData },
+        { returnDocument: 'after' },
+      )
+      .exec();
+
+    if (!updatedPost) {
+      throw new NotFoundException(`Post ${postId} not found or deleted`);
+    }
+
+    // Emit post.updated event
+    await this.rabbitmqService.emitPostUpdated(postId, updatedPost);
+
+    this.logger.log(`✅ Updated post ${postId}`);
+    return updatedPost;
+  }
+
+  /**
+   * Delete post by ID (soft delete).
+   * Sets deleted: true and deletedAt timestamp.
+   *
+   * @param postId - The post ID to delete
+   * @returns Deleted post document
+   */
+  async deletePost(postId: string): Promise<PostDocument> {
+    // Validate postId
+    if (!this.isValidObjectId(postId)) {
+      throw new BadRequestException(`Invalid postId: ${postId}`);
+    }
+
+    // Soft delete - set deleted flag and timestamp
+    const deletedPost = await this.postModel
+      .findOneAndUpdate(
+        { _id: postId, deleted: false },
+        { $set: { deleted: true, deletedAt: new Date() } },
+        { returnDocument: 'after' },
+      )
+      .exec();
+
+    if (!deletedPost) {
+      throw new NotFoundException(`Post ${postId} not found or already deleted`);
+    }
+
+    // Emit post.deleted event
+    await this.rabbitmqService.emitPostDeleted(postId);
+
+    this.logger.log(`✅ Deleted post ${postId}`);
+    return deletedPost;
+  }
+
+  /**
+   * Find a single post by ID.
+   *
+   * @param postId - The post ID to find
+   * @returns Post document or null if not found/deleted
+   */
+  async findOne(postId: string): Promise<PostDocument | null> {
+    if (!this.isValidObjectId(postId)) {
+      throw new BadRequestException(`Invalid postId: ${postId}`);
+    }
+
+    return await this.postModel
+      .findOne({ _id: postId, deleted: false })
+      .exec();
   }
 
   async findAll(limit: number = 20, cursor?: string): Promise<{ posts: Post[]; nextCursor: string | null }> {

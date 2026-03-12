@@ -138,6 +138,23 @@ export class CommentsService {
   }
 
   /**
+   * Find a single comment by ID.
+   *
+   * @param commentId - The comment ID to find
+   * @returns Comment document or null if not found
+   */
+  async findOne(commentId: string): Promise<CommentDocument | null> {
+    if (!Types.ObjectId.isValid(commentId)) {
+      this.logger.warn(`Invalid commentId: ${commentId}`);
+      return null;
+    }
+
+    return await this.commentModel
+      .findOne({ _id: new Types.ObjectId(commentId) })
+      .exec();
+  }
+
+  /**
    * Find recent comments for a post (for feed display).
    * Returns comments in newest-first order.
    *
@@ -146,8 +163,13 @@ export class CommentsService {
    * @returns Array of comments
    */
   async findByPostId(postId: string, limit: number = 4): Promise<Comment[]> {
+    // Convert postId to ObjectId if valid
+    const queryId = Types.ObjectId.isValid(postId)
+      ? new Types.ObjectId(postId)
+      : postId;
+
     const comments = await this.commentModel
-      .find({ postId })
+      .find({ postId: queryId })
       .sort({ createdAt: -1 })
       .limit(limit)
       .exec();
@@ -163,8 +185,13 @@ export class CommentsService {
    * @returns Array of all comments
    */
   async findAllByPostId(postId: string): Promise<Comment[]> {
+    // Convert postId to ObjectId if valid
+    const queryId = Types.ObjectId.isValid(postId)
+      ? new Types.ObjectId(postId)
+      : postId;
+
     const comments = await this.commentModel
-      .find({ postId })
+      .find({ postId: queryId })
       .sort({ createdAt: -1 })
       .exec();
 
