@@ -53,10 +53,7 @@
         "targetName": "test"
       },
       "exclude": [
-        "api-gateway-e2e/**/*",
-        "user-service-e2e/**/*",
-        "post-service-e2e/**/*",
-        "comment-service-e2e/**/*"
+        "e2e/**/*"
       ]
     }
   ],

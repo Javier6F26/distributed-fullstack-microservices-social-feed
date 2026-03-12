@@ -5,6 +5,7 @@
 
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app/app.module';
 
 async function bootstrap() {
@@ -21,14 +22,76 @@ async function bootstrap() {
   });
 
   // Enable cookie parsing - use require to avoid ESM/CJS interop issues
-   
   const cookieParser = require('cookie-parser');
   app.use(cookieParser());
+
+  // Setup Swagger/OpenAPI documentation
+  const config = new DocumentBuilder()
+    .setTitle('API Gateway - Distributed Fullstack Microservices')
+    .setDescription(`
+      Main API Gateway for the distributed fullstack microservices architecture.
+      
+      This gateway proxies requests to:
+      - User Service (Authentication & User Management)
+      - Post Service (Posts & Content)
+      - Comment Service (Comments & Discussions)
+      
+      ## Authentication
+      All authenticated endpoints require a valid JWT token in the Authorization header.
+      Use the /auth/login endpoint to obtain an access token.
+      
+      ## Rate Limiting
+      Endpoints are protected by rate limiting to prevent abuse.
+    `)
+    .setVersion('1.0.0')
+    .addTag('api-gateway', 'API Gateway endpoints')
+    .addTag('authentication', 'User authentication endpoints')
+    .addTag('posts', 'Post management endpoints')
+    .addTag('comments', 'Comment management endpoints')
+    .addBearerAuth({
+      description: 'JWT Authorization header using the Bearer scheme. Example: "Bearer {token}"',
+      name: 'Authorization',
+      in: 'header',
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'JWT',
+    })
+    .addCookieAuth('refreshToken', {
+      description: 'Refresh token cookie for token rotation',
+      name: 'refreshToken',
+      in: 'cookie',
+      type: 'apiKey',
+    })
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'API Gateway Docs',
+  });
+
+  // Save OpenAPI spec to file
+  const fs = require('fs');
+  const path = require('path');
+  const openapiDir = path.join(process.cwd(), 'openapi');
+  if (!fs.existsSync(openapiDir)) {
+    fs.mkdirSync(openapiDir, { recursive: true });
+  }
+  fs.writeFileSync(
+    path.join(openapiDir, 'openapi-api-gateway.json'),
+    JSON.stringify(document, null, 2)
+  );
 
   const port = process.env.PORT || 3000;
   await app.listen(port);
   Logger.log(
     `🚀 Application is running on: http://localhost:${port}/${globalPrefix}`,
+  );
+  Logger.log(
+    `📄 OpenAPI Documentation: http://localhost:${port}/api/docs`,
   );
 }
 

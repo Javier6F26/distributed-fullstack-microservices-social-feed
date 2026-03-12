@@ -10,7 +10,17 @@ import { CreateCommentDto } from './dto/create-comment.dto';
 import { CommentCreateMessage, CommentResponse } from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
 import { validate } from 'class-validator';
 import { Throttle } from '@nestjs/throttler';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiBody,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 
+@ApiTags('comments')
 @Controller('comments')
 export class CommentsController {
   constructor(
@@ -20,75 +30,58 @@ export class CommentsController {
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
-  /**
-   * Get all comments for a specific post.
-   * Fetches from comment-service and returns with caching.
-   *
-   * @param postId - The post ID to fetch comments for
-   * @returns CommentResponse with comments array
-   */
   @Get('post/:postId/all')
   @UseInterceptors(CacheInterceptor)
-  @CacheTTL(10000) // Cache for 10 seconds
+  @CacheTTL(10000)
+  @ApiOperation({ summary: 'Get all comments for a post' })
+  @ApiParam({ name: 'postId', description: 'MongoDB ObjectId of the post', example: '60d5ecb5c7f6a92c2c9d9c82' })
+  @ApiResponse({ status: 200, description: 'Returns all comments for the specified post' })
   async getPostComments(@Param('postId') postId: string) {
     const commentServiceUrl = this.configService.get<string>('COMMENT_SERVICE_URL') || 'http://localhost:3003';
 
     const response = await firstValueFrom(
-      this.httpService.get(`${commentServiceUrl}/api/comments/post/${postId}/all`),
+      this.httpService.get(`${commentServiceUrl}/comments/post/${postId}/all`),
     );
     return response.data;
   }
 
-  /**
-   * Get recent comments for a post (limited count for feed display).
-   * Used in Story 1.4 for initial comment preview.
-   *
-   * @param postId - The post ID
-   * @param limit - Number of comments to fetch (default: 4)
-   * @returns CommentResponse with limited comments array
-   */
   @Get('post/:postId')
   @UseInterceptors(CacheInterceptor)
-  @CacheTTL(5000) // Cache for 5 seconds (more dynamic)
+  @CacheTTL(5000)
+  @ApiOperation({ summary: 'Get recent comments for a post (limited)' })
+  @ApiParam({ name: 'postId', description: 'MongoDB ObjectId of the post', example: '60d5ecb5c7f6a92c2c9d9c82' })
+  @ApiQuery({ name: 'limit', required: false, description: 'Number of comments to return', example: 4, type: Number })
+  @ApiResponse({ status: 200, description: 'Returns recent comments for the specified post' })
   async getRecentComments(@Param('postId') postId: string, @Query('limit') limit?: number) {
     const commentServiceUrl = this.configService.get<string>('COMMENT_SERVICE_URL') || 'http://localhost:3003';
     const limitParam = limit || '4';
 
     const response = await firstValueFrom(
-      this.httpService.get(`${commentServiceUrl}/api/comments/post/${postId}?limit=${limitParam}`),
+      this.httpService.get(`${commentServiceUrl}/comments/post/${postId}?limit=${limitParam}`),
     );
     return response.data;
   }
 
-  /**
-   * Invalidate comments cache (for when new comment is created).
-   *
-   * @param postId - The post ID to invalidate cache for
-   * @returns Success message
-   */
   @Post('invalidate-cache/:postId')
+  @ApiOperation({ summary: 'Invalidate comments cache for a post' })
+  @ApiParam({ name: 'postId', description: 'MongoDB ObjectId of the post', example: '60d5ecb5c7f6a92c2c9d9c82' })
+  @ApiResponse({ status: 200, description: 'Cache invalidated successfully' })
   async invalidateCache(@Param('postId') postId: string) {
-    // Invalidate specific post comments cache
-    // Note: cache-manager doesn't support key-specific invalidation easily
-    // For production, consider using Redis with key patterns
     await this.cacheManager.clear()
     return { success: true, message: 'Comments cache invalidated for post ' + postId };
   }
 
-  /**
-   * Create a new comment via RabbitMQ queue.
-   * Validates DTO, enqueues message, returns optimistic response.
-   *
-   * @param dto - CreateCommentDto with postId and body
-   * @param req - Express request (for JWT user extraction)
-   * @returns CommentResponse with optimistic comment data
-   */
   @Post()
   @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 30, ttl: 60000 } }) // 30 requests per 60 seconds (higher than posts for active discussions)
+  @Throttle({ default: { limit: 30, ttl: 60000 } })
   @HttpCode(HttpStatus.CREATED)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create a new comment' })
+  @ApiBody({ type: CreateCommentDto })
+  @ApiResponse({ status: 201, description: 'Comment created successfully' })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async createComment(@Body() dto: CreateCommentDto, @Body() req: any): Promise<CommentResponse> {
-    // Validate DTO using class-validator
     const validationErrors = await validate(dto);
 
     if (validationErrors.length > 0) {
@@ -106,7 +99,6 @@ export class CommentsController {
     }
 
     try {
-      // Extract userId and user info from JWT (guaranteed by JwtStrategy.validate())
       const userId = (req as any).user?.userId;
       const username = (req as any).user?.username;
       const avatar = (req as any).user?.avatar;
@@ -127,10 +119,8 @@ export class CommentsController {
         };
       }
 
-      // Generate client-side tempId for optimistic UI correlation
       const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      // Create RabbitMQ message payload
       const message: CommentCreateMessage = {
         postId: dto.postId,
         userId,
@@ -141,22 +131,19 @@ export class CommentsController {
         tempId,
       };
 
-      // Publish to RabbitMQ queue
       await this.rabbitmqService.publishCommentCreate(message);
 
-      // Return optimistic response for immediate UI update
       return {
         success: true,
         message: 'Comment created successfully',
         data: {
-          _id: tempId, // Use tempId as optimistic _id
+          _id: tempId,
           ...message,
           pending: true,
           deleted: false,
         } as any,
       };
     } catch (error) {
-      // RabbitMQ or other service error
       console.error('Failed to create comment:', error);
       return {
         success: false,

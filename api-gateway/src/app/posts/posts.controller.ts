@@ -33,7 +33,7 @@ export class PostsController {
 
         // Fetch posts from post-service
         const postsResponse = await firstValueFrom(
-            this.httpService.get(`${postServiceUrl}/api/posts`, {params}),
+            this.httpService.get(`${postServiceUrl}/posts`, {params}),
         );
 
         const posts = postsResponse.data.data || [];
@@ -44,7 +44,7 @@ export class PostsController {
             posts.map(async (post: any) => {
                 try {
                     const commentsResponse = await firstValueFrom(
-                        this.httpService.get(`${commentServiceUrl}/api/comments/post/${post._id}?limit=4`, {timeout: 5000}),
+                        this.httpService.get(`${commentServiceUrl}/comments/post/${post._id}?limit=4`, {timeout: 5000}),
                     );
                     return commentsResponse.data.data || [];
                 } catch (error) {
@@ -81,7 +81,7 @@ export class PostsController {
         const postServiceUrl = this.configService.get<string>('POST_SERVICE_URL') || 'http://localhost:3002';
 
         const response = await firstValueFrom(
-            this.httpService.get(`${postServiceUrl}/api/posts/search`, {params}),
+            this.httpService.get(`${postServiceUrl}/posts/search`, {params}),
         );
         return response.data;
     }
@@ -104,7 +104,7 @@ export class PostsController {
         const postServiceUrl = this.configService.get<string>('POST_SERVICE_URL') || 'http://localhost:3002';
 
         const response = await firstValueFrom(
-            this.httpService.get(`${postServiceUrl}/api/posts/filter`, {params}),
+            this.httpService.get(`${postServiceUrl}/posts/filter`, {params}),
         );
         return response.data;
     }
@@ -129,7 +129,7 @@ export class PostsController {
         const postServiceUrl = this.configService.get<string>('POST_SERVICE_URL') || 'http://localhost:3002';
 
         const response = await firstValueFrom(
-            this.httpService.get(`${postServiceUrl}/api/posts/search-filter`, {params}),
+            this.httpService.get(`${postServiceUrl}/posts/search-filter`, {params}),
         );
         return response.data;
     }
@@ -224,7 +224,7 @@ export class PostsController {
         const commentServiceUrl = this.configService.get<string>('COMMENT_SERVICE_URL') || 'http://localhost:3003';
 
         const response = await firstValueFrom(
-            this.httpService.get(`${commentServiceUrl}/api/comments/post/${postId}/all`),
+            this.httpService.get(`${commentServiceUrl}/comments/post/${postId}/all`),
         );
         return response.data;
     }

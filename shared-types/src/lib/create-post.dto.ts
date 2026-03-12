@@ -1,4 +1,5 @@
 import { IsString, MinLength, MaxLength, IsNotEmpty } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 /**
  * Data Transfer Object for creating a new post.
@@ -9,12 +10,26 @@ import { IsString, MinLength, MaxLength, IsNotEmpty } from 'class-validator';
  * - body: required, 10-5000 characters
  */
 export class CreatePostDto {
+  @ApiProperty({
+    description: 'The title of the post',
+    example: 'My Amazing Post',
+    type: String,
+    minLength: 5,
+    maxLength: 100,
+  })
   @IsString()
   @IsNotEmpty({ message: 'Title is required' })
   @MinLength(5, { message: 'Title must be at least 5 characters long' })
   @MaxLength(100, { message: 'Title must not exceed 100 characters' })
   title!: string;
 
+  @ApiProperty({
+    description: 'The body content of the post',
+    example: 'This is the full content of my amazing post.',
+    type: String,
+    minLength: 10,
+    maxLength: 5000,
+  })
   @IsString()
   @IsNotEmpty({ message: 'Body is required' })
   @MinLength(10, { message: 'Body must be at least 10 characters long' })
