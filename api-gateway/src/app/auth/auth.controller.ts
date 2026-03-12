@@ -69,7 +69,16 @@ export class AuthController {
         });
       }
 
-      return response.status(result.status).json(result.data);
+      // Ensure refreshToken is in response body for Postman
+      const responseData = result.data;
+      if (!responseData.refreshToken && cookies) {
+        const match = cookies[0].match(/refreshToken=([^;]+)/);
+        if (match && match[1]) {
+          responseData.refreshToken = match[1];
+        }
+      }
+
+      return response.status(result.status).json(responseData);
     } catch (error: any) {
       // Let the global filter handle the error
       throw error;
@@ -83,10 +92,11 @@ export class AuthController {
    */
   @Post('refresh')
   @Throttle({ default: { limit: 30, ttl: 60 } })
-  async refresh(@Req() request: Request, @Res() response: Response) {
+  async refresh(@Req() request: Request, @Res() response: Response, @Body() body: any) {
     try {
       const userServiceUrl = this.getUserServiceUrl();
-      const refreshToken = request.cookies?.refreshToken;
+      // Try to get refreshToken from body first (for Postman), then from cookies
+      const refreshToken = body?.refreshToken || request.cookies?.refreshToken;
 
       if (!refreshToken) {
         return response.status(401).json({
@@ -95,6 +105,7 @@ export class AuthController {
         });
       }
 
+      // Forward refreshToken as cookie to user-service
       const result = await firstValueFrom(
         this.httpService.post(`${userServiceUrl}/auth/refresh`, {}, {
           headers: {

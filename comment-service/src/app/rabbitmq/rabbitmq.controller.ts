@@ -23,32 +23,23 @@ export class RabbitmqController {
   @MessagePattern(COMMENT_CREATE_QUEUE)
   async handleCommentCreate(
     @Payload() data: CommentCreateMessage,
-    @Ctx() context: RmqContext,
   ) {
-    const channel = context.getChannelRef();
-    const originalMessage = context.getMessage();
-
     try {
       // Validate message payload
-      if (!data.postId || !data.name || !data.email || !data.body) {
+      if (!data.postId || !data.authorId || !data.name || !data.email || !data.body) {
         throw new Error('Invalid message payload: missing required fields');
       }
 
       // Create comment in database
       await this.commentsService.createCommentFromQueue(data);
 
-      // Acknowledge successful processing
-      channel.ack(originalMessage);
-
       return { success: true, tempId: data.tempId };
     } catch (error) {
       // Log error
       console.error('Failed to process comment creation:', (error as Error).message);
 
-      // Reject message and send to DLQ (don't retry)
-      channel.nack(originalMessage, false, false);
-
-      return { success: false, error: (error as Error).message };
+      // NestJS will automatically nack the message on error
+      throw error;
     }
   }
 }

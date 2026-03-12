@@ -77,7 +77,11 @@ function setupDocumentation(app: INestApplication): void {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
+  // Setup cookie-parser for reading refresh tokens from cookies
+  const cookieParser = require('cookie-parser');
+  app.use(cookieParser());
+
   // Setup documentation (separate function for clean bootstrap)
   setupDocumentation(app);
 

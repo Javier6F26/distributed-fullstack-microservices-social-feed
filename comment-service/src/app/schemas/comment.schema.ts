@@ -8,10 +8,13 @@ export class Comment {
   @Prop({ required: true, type: Types.ObjectId, ref: 'Post' })
   postId: Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: String })
+  authorId: string;
+
+  @Prop({ required: true, type: String })
   name: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, type: String })
   email: string;
 
   @Prop({ required: true, minlength: 1, maxlength: 1000 })
@@ -28,3 +31,4 @@ export const CommentSchema = SchemaFactory.createForClass(Comment);
 
 // Indexes for efficient queries
 CommentSchema.index({ postId: 1, createdAt: -1 });
+CommentSchema.index({ authorId: 1, createdAt: -1 });

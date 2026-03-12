@@ -52,8 +52,8 @@ export class AuthService {
       passwordHash,
     });
 
-    // Generate JWT tokens
-    const tokens = await this.generateTokens(createdUser);
+    // Generate JWT tokens (no clientIp for registration)
+    const tokens = await this.generateTokens(createdUser, undefined);
 
     // Return user data without password
     return {
@@ -115,7 +115,7 @@ export class AuthService {
     await this.logSuccessfulLogin(user, clientIp);
 
     // Generate JWT tokens
-    const tokens = await this.generateTokens(user);
+    const tokens = await this.generateTokens(user, clientIp);
 
     return {
       message: 'Login successful',
@@ -197,7 +197,7 @@ export class AuthService {
   /**
    * Generate JWT access and refresh tokens
    */
-  private async generateTokens(user: UserDocument) {
+  private async generateTokens(user: UserDocument, clientIp?: string) {
     const payload = {
       sub: user._id,
       username: user.username,
@@ -210,11 +210,9 @@ export class AuthService {
       secret: process.env.JWT_SECRET,
     });
 
-    // Refresh token: 7 days
-    const refreshToken = await this.jwtService.signAsync(payload, {
-      expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
-      secret: process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET,
-    });
+    // Refresh token: 7 days (stored in database)
+    const refreshTokenResult = await this.refreshTokenService.generateRefreshToken(user._id, clientIp);
+    const refreshToken = refreshTokenResult.refreshToken;
 
     return {
       accessToken,

@@ -222,6 +222,12 @@ function generatePostmanCollection(): void {
                     '    const response = pm.response.json();',
                     '    if (response.accessToken) { pm.collectionVariables.set("accessToken", response.accessToken); }',
                     '    if (response.refreshToken) { pm.collectionVariables.set("refreshToken", response.refreshToken); }',
+                    '    // Also try to capture refreshToken from Set-Cookie header',
+                    '    const setCookieHeader = pm.response.headers.get("Set-Cookie");',
+                    '    if (setCookieHeader) {',
+                    '        const match = setCookieHeader.match(/refreshToken=([^;]+)/);',
+                    '        if (match && match[1]) { pm.collectionVariables.set("refreshToken", match[1]); }',
+                    '    }',
                     '}',
                   ],
                 },
@@ -354,6 +360,7 @@ function generatePostmanCollection(): void {
                     '    pm.test("Comment created successfully", function() {',
                     '        pm.expect(response.success).to.be.true;',
                     '        pm.expect(response.data).to.have.property("postId", pm.collectionVariables.get("postId"));',
+                    '        pm.expect(response.data).to.have.property("authorId");',
                     '        pm.expect(response.data).to.have.property("name");',
                     '        pm.expect(response.data).to.have.property("email");',
                     '        pm.expect(response.data).to.have.property("body", "Test comment for comment creation");',
@@ -393,6 +400,7 @@ function generatePostmanCollection(): void {
                     '        const comment = response.data[0];',
                     '        pm.test("Comment has correct structure", function() {',
                     '            pm.expect(comment).to.have.property("postId");',
+                    '            pm.expect(comment).to.have.property("authorId");',
                     '            pm.expect(comment).to.have.property("name");',
                     '            pm.expect(comment).to.have.property("email");',
                     '            pm.expect(comment).to.have.property("body");',
@@ -409,6 +417,13 @@ function generatePostmanCollection(): void {
             name: '07 - Refresh Token',
             request: {
               method: 'POST',
+              header: [
+                { key: 'Content-Type', value: 'application/json' },
+              ],
+              body: {
+                mode: 'raw',
+                raw: JSON.stringify({ refreshToken: '{{refreshToken}}' }, null, 2),
+              },
               url: {
                 raw: '{{baseUrl}}/auth/refresh',
                 host: ['{{baseUrl}}'],
@@ -424,6 +439,7 @@ function generatePostmanCollection(): void {
                     'if (pm.response.code === 200) {',
                     '    const response = pm.response.json();',
                     '    if (response.accessToken) { pm.collectionVariables.set("accessToken", response.accessToken); }',
+                    '    if (response.refreshToken) { pm.collectionVariables.set("refreshToken", response.refreshToken); }',
                     '}',
                   ],
                 },
@@ -476,6 +492,10 @@ function generatePostmanCollection(): void {
             name: 'Refresh Token',
             request: {
               method: 'POST',
+              header: [
+                { key: 'Content-Type', value: 'application/json' },
+                { key: 'Cookie', value: 'refreshToken={{refreshToken}}' },
+              ],
               url: {
                 raw: '{{baseUrl}}/auth/refresh',
                 host: ['{{baseUrl}}'],

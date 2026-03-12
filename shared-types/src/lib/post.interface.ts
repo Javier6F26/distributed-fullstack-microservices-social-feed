@@ -59,6 +59,7 @@ export interface PostResponse {
  */
 export interface CommentCreateMessage {
   postId: string;
+  authorId: string;
   name: string;
   email: string;
   body: string;
@@ -72,6 +73,7 @@ export interface CommentCreateMessage {
 export interface Comment {
   _id?: string;
   postId: string;
+  authorId: string;
   name: string;
   email: string;
   body: string;

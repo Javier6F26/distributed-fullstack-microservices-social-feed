@@ -1,4 +1,4 @@
-import { Controller, Get, Post, UseInterceptors, Inject, Param, Body, HttpStatus, HttpCode, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, UseInterceptors, Inject, Param, Body, HttpStatus, HttpCode, UseGuards, Query, Req } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
@@ -9,6 +9,7 @@ import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { CommentCreateMessage, CommentResponse } from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
 import { validate } from 'class-validator';
+import { plainToInstance } from 'class-transformer';
 import { Throttle } from '@nestjs/throttler';
 import {
   ApiTags,
@@ -81,8 +82,10 @@ export class CommentsController {
   @ApiResponse({ status: 201, description: 'Comment created successfully' })
   @ApiResponse({ status: 400, description: 'Validation failed' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async createComment(@Body() dto: CreateCommentDto, @Body() req: any): Promise<CommentResponse> {
-    const validationErrors = await validate(dto);
+  async createComment(@Body() dto: any, @Req() req: any): Promise<CommentResponse> {
+    // Convert plain object to CreateCommentDto instance for class-validator
+    const dtoInstance = plainToInstance(CreateCommentDto, dto);
+    const validationErrors = await validate(dtoInstance);
 
     if (validationErrors.length > 0) {
       const errors = validationErrors.map((error) => ({
@@ -99,14 +102,24 @@ export class CommentsController {
     }
 
     try {
-      const username = (req as any).user?.username || 'Anonymous';
+      const userId = (req as any).user?.userId;
+      const name = (req as any).user?.username || 'Anonymous';
       const email = (req as any).user?.email || 'anonymous@example.com';
+
+      if (!userId) {
+        return {
+          success: false,
+          message: 'User ID not found in token',
+          status: HttpStatus.UNAUTHORIZED,
+        };
+      }
 
       const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
       const message: CommentCreateMessage = {
         postId: dto.postId,
-        name: username,
+        authorId: userId,
+        name: name,
         email: email,
         body: dto.body,
         createdAt: new Date().toISOString(),

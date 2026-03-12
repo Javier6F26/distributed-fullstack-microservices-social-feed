@@ -18,6 +18,7 @@ export class CommentsService {
   async createCommentFromQueue(message: CommentCreateMessage): Promise<CommentDocument> {
     const comment = new this.commentModel({
       postId: message.postId,
+      authorId: message.authorId,
       name: message.name,
       email: message.email,
       body: message.body,
@@ -37,7 +38,7 @@ export class CommentsService {
    */
   async findByPostId(postId: string, limit: number = 4): Promise<Comment[]> {
     const comments = await this.commentModel
-      .find({ postId, deleted: false })
+      .find({ postId })
       .sort({ createdAt: -1 })
       .limit(limit)
       .exec();
@@ -50,11 +51,11 @@ export class CommentsService {
    * Returns comments in newest-first order.
    *
    * @param postId - The post ID
-   * @returns Array of all non-deleted comments
+   * @returns Array of all comments
    */
   async findAllByPostId(postId: string): Promise<Comment[]> {
     const comments = await this.commentModel
-      .find({ postId, deleted: false })
+      .find({ postId })
       .sort({ createdAt: -1 })
       .exec();
 
