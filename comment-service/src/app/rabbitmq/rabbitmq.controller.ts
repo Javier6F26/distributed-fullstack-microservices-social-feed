@@ -1,6 +1,6 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern, Ctx, Payload } from '@nestjs/microservices';
-import { RmqContext, RmqRecordBuilder } from '@nestjs/microservices';
+import { RmqContext } from '@nestjs/microservices';
 import { CommentsService } from '../comments/comments.service';
 import { CommentCreateMessage } from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
 import { COMMENT_CREATE_QUEUE } from './rabbitmq.constants';
@@ -30,7 +30,7 @@ export class RabbitmqController {
 
     try {
       // Validate message payload
-      if (!data.postId || !data.userId || !data.body) {
+      if (!data.postId || !data.name || !data.email || !data.body) {
         throw new Error('Invalid message payload: missing required fields');
       }
 
@@ -40,26 +40,15 @@ export class RabbitmqController {
       // Acknowledge successful processing
       channel.ack(originalMessage);
 
-      // Emit comment.created event for other services
-      channel.sendToQueue('comment.events', new RmqRecordBuilder({
-        event: 'comment.created',
-        data: {
-          commentId: data.tempId, // Will be replaced with actual _id after save
-          postId: data.postId,
-          userId: data.userId,
-          tempId: data.tempId,
-        },
-      }).build());
-
       return { success: true, tempId: data.tempId };
     } catch (error) {
       // Log error
-      console.error('Failed to process comment creation:', error.message);
+      console.error('Failed to process comment creation:', (error as Error).message);
 
       // Reject message and send to DLQ (don't retry)
       channel.nack(originalMessage, false, false);
 
-      return { success: false, error: error.message };
+      return { success: false, error: (error as Error).message };
     }
   }
 }

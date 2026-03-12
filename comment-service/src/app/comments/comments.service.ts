@@ -18,12 +18,10 @@ export class CommentsService {
   async createCommentFromQueue(message: CommentCreateMessage): Promise<CommentDocument> {
     const comment = new this.commentModel({
       postId: message.postId,
-      userId: message.userId,
-      authorUsername: message.authorUsername,
-      authorAvatar: message.authorAvatar,
+      name: message.name,
+      email: message.email,
       body: message.body,
-      createdAt: message.createdAt || new Date().toISOString(),
-      deleted: false,
+      createdAt: message.createdAt || new Date(),
     });
 
     return await comment.save();
