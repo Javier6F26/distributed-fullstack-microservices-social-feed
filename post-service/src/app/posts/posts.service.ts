@@ -29,11 +29,6 @@ export class PostsService {
    *
    * @param message - PostCreateMessage from queue
    * @returns Created post document
-   * 
-   * NOTE: tempId is NEVER stored in the database. It is only used for:
-   * - Optimistic UI correlation on the frontend
-   * - RabbitMQ event payload for API Gateway pending write confirmation
-   * - Redis cache key (30 second TTL) for polling-based confirmation
    */
   async createPostFromQueue(message: PostCreateMessage): Promise<PostDocument> {
     const post = new this.postModel({
@@ -365,6 +360,7 @@ export class PostsService {
   /**
    * Bulk create posts with strict schema validation.
    * Handles duplicates and invalid references gracefully.
+   * Uses insertMany for efficient batch database operations.
    *
    * @param posts - Array of post data to create
    * @returns Object with created posts and skipped/failed entries
@@ -376,7 +372,20 @@ export class PostsService {
       errors: [] as Array<{ authorId: string; title: string; error: string }>,
     };
 
-    for (const postData of posts) {
+    const postsToInsert: Array<{
+      authorId: string;
+      author: string;
+      title: string;
+      body: string;
+      commentCount: number;
+      deleted: boolean;
+      recentComments: any[];
+    }> = [];
+    const postIndexMap: Map<number, number> = new Map(); // Maps insert index to original post index
+
+    // Pre-process: check duplicates and prepare posts for insertion
+    for (let i = 0; i < posts.length; i++) {
+      const postData = posts[i];
       try {
         // Validate authorId format
         if (!this.isValidObjectId(postData.authorId)) {
@@ -403,8 +412,9 @@ export class PostsService {
           continue;
         }
 
-        // Create post
-        const post = new this.postModel({
+        // Add to insert batch
+        postIndexMap.set(postsToInsert.length, i);
+        postsToInsert.push({
           authorId: postData.authorId,
           author: postData.author,
           title: postData.title,
@@ -413,23 +423,46 @@ export class PostsService {
           deleted: false,
           recentComments: [],
         });
-
-        const savedPost = await post.save();
-
-        results.created.push({
-          _id: savedPost._id.toString(),
-          authorId: savedPost.authorId,
-          title: savedPost.title,
-        });
-
-        this.logger.log(`✅ Created post: ${savedPost.title} by ${savedPost.author}`);
       } catch (error: any) {
         results.errors.push({
           authorId: postData.authorId,
           title: postData.title,
           error: error.message || 'Unknown error',
         });
-        this.logger.error(`❌ Failed to create post "${postData.title}": ${error.message}`);
+        this.logger.error(`❌ Failed to prepare post "${postData.title}": ${error.message}`);
+      }
+    }
+
+    // Bulk insert all posts at once using insertMany
+    if (postsToInsert.length > 0) {
+      try {
+        const insertResult = await this.postModel.insertMany(postsToInsert, { ordered: false });
+        
+        for (let i = 0; i < insertResult.length; i++) {
+          const savedPost = insertResult[i];
+          results.created.push({
+            _id: savedPost._id.toString(),
+            authorId: savedPost.authorId,
+            title: savedPost.title,
+          });
+          this.logger.log(`✅ Created post: ${savedPost.title} by ${savedPost.author}`);
+        }
+      } catch (error: any) {
+        this.logger.error(`❌ Bulk insert failed: ${error.message}`);
+        // Handle partial failures from ordered: false
+        if (error.writeErrors) {
+          for (const writeError of error.writeErrors) {
+            const originalIndex = postIndexMap.get(writeError.index);
+            if (originalIndex !== undefined) {
+              const postData = posts[originalIndex];
+              results.errors.push({
+                authorId: postData.authorId,
+                title: postData.title,
+                error: writeError.errmsg || 'Insert failed',
+              });
+            }
+          }
+        }
       }
     }
 

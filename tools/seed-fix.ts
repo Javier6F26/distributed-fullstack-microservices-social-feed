@@ -92,7 +92,7 @@ function generateComments(userIds: Record<string, string>, postIds: Record<strin
   const posts = Object.keys(postIds);
   const users = Object.keys(userIds);
   const comments: Array<{ postId: string; authorId: string; name: string; email: string; body: string }> = [];
-  const bodies = ['Great post!', 'Very informative!', 'Thanks for sharing!', 'Well explained!', 'Learned something new!'];
+  const bodies = ['Great post!', 'Very informative!', 'Thanks for sharing!', 'Well explained!', 'Learned something new!', 'Awesome insights!', 'Looking forward to more!', 'This helped me a lot!', 'Bookmarked for later!', 'Shared with my team!'];
 
   // If no users, skip comment generation
   if (users.length === 0) {
@@ -106,12 +106,11 @@ function generateComments(userIds: Record<string, string>, postIds: Record<strin
     return comments;
   }
 
-  // Generate comments for first 100 posts only (to avoid too many comments)
-  const postsToComment = posts.slice(0, 100);
-
-  postsToComment.forEach((title, i) => {
+  // Generate 5-15 comments for each post (all posts)
+  posts.forEach((title, i) => {
     const postId = postIds[title];
-    for (let j = 0; j < 2 + (i % 3); j++) {
+    const commentCount = 5 + (i % 11); // 5 to 15 comments per post
+    for (let j = 0; j < commentCount; j++) {
       const author = users[(i + j) % users.length];
       comments.push({
         postId: postId || '60d5ecb5c7f6a92c2c9d9c90',

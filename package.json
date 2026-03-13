@@ -3,11 +3,7 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "generate:openapi": "node tools/scripts/generate-openapi-spec.js",
-    "generate:postman": "node tools/scripts/generate-postman-collection.js",
-    "generate:postman:collections": "node tools/scripts/convert-to-postman.js",
-    "generate:postman:offline": "node tools/scripts/generate-postman-collection.js --skip-services",
-    "docs:openapi": "echo 'OpenAPI specs available at /api/docs when services are running'"
+    "seed": "npx ts-node tools/seed-fix.ts"
   },
   "private": true,
   "devDependencies": {

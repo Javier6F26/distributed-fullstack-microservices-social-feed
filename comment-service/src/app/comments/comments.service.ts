@@ -20,11 +20,6 @@ export class CommentsService {
    *
    * @param message - CommentCreateMessage from queue
    * @returns Created comment document
-   * 
-   * NOTE: tempId is NEVER stored in the database. It is only used for:
-   * - Optimistic UI correlation on the frontend
-   * - RabbitMQ event payload for API Gateway pending write confirmation
-   * - Redis cache key (30 second TTL) for polling-based confirmation
    */
   async createCommentFromQueue(message: CommentCreateMessage): Promise<CommentDocument> {
     // Convert postId to ObjectId if it's a valid ObjectId string
@@ -221,6 +216,7 @@ export class CommentsService {
   /**
    * Bulk create comments with strict schema validation.
    * Handles duplicates and invalid references gracefully.
+   * Uses insertMany for efficient batch database operations.
    *
    * @param comments - Array of comment data to create
    * @returns Object with created comments and skipped/failed entries
@@ -238,7 +234,18 @@ export class CommentsService {
       errors: [] as Array<{ postId: string; authorId: string; name: string; error: string }>,
     };
 
-    for (const commentData of comments) {
+    const commentsToInsert: Array<{
+      postId: Types.ObjectId;
+      authorId: string;
+      name: string;
+      email: string;
+      body: string;
+    }> = [];
+    const commentIndexMap: Map<number, number> = new Map(); // Maps insert index to original comment index
+
+    // Pre-process: check duplicates and prepare comments for insertion
+    for (let i = 0; i < comments.length; i++) {
+      const commentData = comments[i];
       try {
         // Validate postId format
         if (!Types.ObjectId.isValid(commentData.postId)) {
@@ -279,25 +286,15 @@ export class CommentsService {
           continue;
         }
 
-        // Create comment
-        const comment = new this.commentModel({
+        // Add to insert batch
+        commentIndexMap.set(commentsToInsert.length, i);
+        commentsToInsert.push({
           postId: new Types.ObjectId(commentData.postId),
           authorId: commentData.authorId,
           name: commentData.name,
           email: commentData.email,
           body: commentData.body,
         });
-
-        const savedComment = await comment.save();
-
-        results.created.push({
-          _id: savedComment._id.toString(),
-          postId: savedComment.postId.toString(),
-          authorId: savedComment.authorId,
-          name: savedComment.name,
-        });
-
-        this.logger.log(`✅ Created comment: ${savedComment.name} on post ${savedComment.postId}`);
       } catch (error: any) {
         results.errors.push({
           postId: commentData.postId,
@@ -305,7 +302,42 @@ export class CommentsService {
           name: commentData.name,
           error: error.message || 'Unknown error',
         });
-        this.logger.error(`❌ Failed to create comment by ${commentData.name}: ${error.message}`);
+        this.logger.error(`❌ Failed to prepare comment by ${commentData.name}: ${error.message}`);
+      }
+    }
+
+    // Bulk insert all comments at once using insertMany
+    if (commentsToInsert.length > 0) {
+      try {
+        const insertResult = await this.commentModel.insertMany(commentsToInsert, { ordered: false });
+        
+        for (let i = 0; i < insertResult.length; i++) {
+          const savedComment = insertResult[i];
+          results.created.push({
+            _id: savedComment._id.toString(),
+            postId: savedComment.postId.toString(),
+            authorId: savedComment.authorId,
+            name: savedComment.name,
+          });
+          this.logger.log(`✅ Created comment: ${savedComment.name} on post ${savedComment.postId}`);
+        }
+      } catch (error: any) {
+        this.logger.error(`❌ Bulk insert failed: ${error.message}`);
+        // Handle partial failures from ordered: false
+        if (error.writeErrors) {
+          for (const writeError of error.writeErrors) {
+            const originalIndex = commentIndexMap.get(writeError.index);
+            if (originalIndex !== undefined) {
+              const commentData = comments[originalIndex];
+              results.errors.push({
+                postId: commentData.postId,
+                authorId: commentData.authorId,
+                name: commentData.name,
+                error: writeError.errmsg || 'Insert failed',
+              });
+            }
+          }
+        }
       }
     }
 

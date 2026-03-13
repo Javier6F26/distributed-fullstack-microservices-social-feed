@@ -69,6 +69,7 @@ export class UsersService {
   /**
    * Bulk create users with strict schema validation.
    * Hashes passwords and handles duplicates gracefully.
+   * Uses insertMany for efficient batch database operations.
    *
    * @param users - Array of user data to create
    * @returns Object with created users and skipped duplicates
@@ -80,7 +81,12 @@ export class UsersService {
       errors: [] as Array<{ username: string; email: string; error: string }>,
     };
 
-    for (const userData of users) {
+    const usersToInsert: Array<{ username: string; email: string; passwordHash: string }> = [];
+    const userIndexMap: Map<number, number> = new Map(); // Maps insert index to original user index
+
+    // Pre-process: check duplicates and prepare users for insertion
+    for (let i = 0; i < users.length; i++) {
+      const userData = users[i];
       try {
         // Check for existing user
         const existingUser = await this.userModel.findOne({
@@ -100,29 +106,53 @@ export class UsersService {
         const saltRounds = 10;
         const passwordHash = await bcrypt.hash(userData.password, saltRounds);
 
-        // Create user
-        const user = new this.userModel({
+        // Add to insert batch
+        userIndexMap.set(usersToInsert.length, i);
+        usersToInsert.push({
           username: userData.username,
           email: userData.email,
           passwordHash,
         });
-
-        const savedUser = await user.save();
-
-        results.created.push({
-          _id: savedUser._id.toString(),
-          username: savedUser.username,
-          email: savedUser.email,
-        });
-
-        this.logger.log(`✅ Created user: ${savedUser.username} (${savedUser.email})`);
       } catch (error: any) {
         results.errors.push({
           username: userData.username,
           email: userData.email,
           error: error.message || 'Unknown error',
         });
-        this.logger.error(`❌ Failed to create user ${userData.username}: ${error.message}`);
+        this.logger.error(`❌ Failed to prepare user ${userData.username}: ${error.message}`);
+      }
+    }
+
+    // Bulk insert all users at once using insertMany
+    if (usersToInsert.length > 0) {
+      try {
+        const insertResult = await this.userModel.insertMany(usersToInsert, { ordered: false });
+        
+        for (let i = 0; i < insertResult.length; i++) {
+          const savedUser = insertResult[i];
+          results.created.push({
+            _id: savedUser._id.toString(),
+            username: savedUser.username,
+            email: savedUser.email,
+          });
+          this.logger.log(`✅ Created user: ${savedUser.username} (${savedUser.email})`);
+        }
+      } catch (error: any) {
+        this.logger.error(`❌ Bulk insert failed: ${error.message}`);
+        // Handle partial failures from ordered: false
+        if (error.writeErrors) {
+          for (const writeError of error.writeErrors) {
+            const originalIndex = userIndexMap.get(writeError.index);
+            if (originalIndex !== undefined) {
+              const userData = users[originalIndex];
+              results.errors.push({
+                username: userData.username,
+                email: userData.email,
+                error: writeError.errmsg || 'Insert failed',
+              });
+            }
+          }
+        }
       }
     }
 
