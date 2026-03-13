@@ -102,10 +102,12 @@ export interface CommentResponse {
 export interface PostComment {
   _id: string;
   postId: string;
+  authorId: string;
   name: string;
   email: string;
   body: string;
   createdAt: Date | string;
+  updatedAt?: Date | string;
 }
 
 /**

@@ -63,19 +63,23 @@ export class AuthController {
 
       // Forward cookies from user-service response
       const cookies = result.headers['set-cookie'];
+      let refreshToken: string | undefined;
+      
       if (cookies) {
         cookies.forEach((cookie: string) => {
           response.header('Set-Cookie', cookie);
+          // Extract refreshToken from cookie
+          const match = cookie.match(/refreshToken=([^;]+)/);
+          if (match && match[1]) {
+            refreshToken = match[1];
+          }
         });
       }
 
-      // Ensure refreshToken is in response body for Postman
+      // Add refreshToken to response body for frontend to store
       const responseData = result.data;
-      if (!responseData.refreshToken && cookies) {
-        const match = cookies[0].match(/refreshToken=([^;]+)/);
-        if (match && match[1]) {
-          responseData.refreshToken = match[1];
-        }
+      if (refreshToken) {
+        responseData.refreshToken = refreshToken;
       }
 
       return response.status(result.status).json(responseData);
@@ -119,14 +123,27 @@ export class AuthController {
       // CRITICAL: Forward cookies from user-service response to frontend
       // This ensures Set-Cookie headers are properly passed through
       const cookies = result.headers['set-cookie'];
+      let newRefreshToken: string | undefined;
+      
       if (cookies && Array.isArray(cookies)) {
         cookies.forEach((cookie: string) => {
           // Forward the cookie exactly as received from user-service
           response.append('Set-Cookie', cookie);
+          // Extract refreshToken from cookie
+          const match = cookie.match(/refreshToken=([^;]+)/);
+          if (match && match[1]) {
+            newRefreshToken = match[1];
+          }
         });
       }
 
-      return response.status(result.status).json(result.data);
+      // Add refreshToken to response body for frontend to store
+      const responseData = result.data;
+      if (newRefreshToken) {
+        responseData.refreshToken = newRefreshToken;
+      }
+
+      return response.status(result.status).json(responseData);
     } catch (error: any) {
       // Let the global filter handle the error
       throw error;

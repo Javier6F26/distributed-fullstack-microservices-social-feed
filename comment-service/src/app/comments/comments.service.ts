@@ -130,10 +130,12 @@ export class CommentsService {
     return comments.map((comment) => ({
       _id: comment._id.toString(),
       postId: comment.postId.toString(),
+      authorId: comment.authorId,
       name: comment.name,
       email: comment.email,
       body: comment.body,
       createdAt: comment.createdAt,
+      updatedAt: comment.updatedAt,
     }));
   }
 

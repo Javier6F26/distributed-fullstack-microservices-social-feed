@@ -60,16 +60,18 @@ export class PostsService {
     }
 
     // Update post with the recentComments array from event
+    // Note: We do NOT filter by deleted: false here to allow comment updates on soft-deleted posts
+    // This ensures data consistency even if the post is soft-deleted (it won't appear in feed anyway)
     const result = await this.postModel
       .findOneAndUpdate(
-        { _id: postId, deleted: false },
+        { _id: postId },
         { $set: { recentComments } },
         { returnDocument: 'after' },
       )
       .exec();
 
     if (!result) {
-      this.logger.warn(`Post not found or deleted: ${postId}. Skipping recentComments update.`);
+      this.logger.warn(`Post not found: ${postId}. Skipping recentComments update.`);
       return;
     }
 
@@ -170,8 +172,8 @@ export class PostsService {
   }
 
   async findAll(limit: number = 20, cursor?: string): Promise<{ posts: Post[]; nextCursor: string | null }> {
-    const query: any = {};
-    
+    const query: any = { deleted: false };
+
     // Validate cursor if provided
     if (cursor) {
       if (!this.isValidObjectId(cursor)) {
@@ -195,7 +197,7 @@ export class PostsService {
   }
 
   async search(searchDto: SearchPostsDto, limit: number = 20, cursor?: string): Promise<{ posts: Post[]; nextCursor: string | null }> {
-    const query: any = {};
+    const query: any = { deleted: false };
 
     // Validate cursor if provided
     if (cursor) {
@@ -230,7 +232,7 @@ export class PostsService {
   }
 
   async filter(filterDto: FilterPostsDto, limit: number = 20, cursor?: string): Promise<{ posts: Post[]; nextCursor: string | null }> {
-    const query: any = {};
+    const query: any = { deleted: false };
 
     // Validate cursor if provided
     if (cursor) {
@@ -279,7 +281,7 @@ export class PostsService {
     limit: number = 20,
     cursor?: string,
   ): Promise<{ posts: Post[]; nextCursor: string | null }> {
-    const query: any = {};
+    const query: any = { deleted: false };
 
     // Validate cursor if provided
     if (cursor) {
