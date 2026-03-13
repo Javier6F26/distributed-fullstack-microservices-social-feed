@@ -198,10 +198,12 @@ export class PostsController {
   @Get('pending/:tempId')
   async checkPending(@Param('tempId') tempId: string) {
     const value = await this.cacheManager.get(`pending:${tempId}`);
+    
     if (!value) {
       // Not found = confirmed (deleted from cache after DB save)
       // Check if we have the real postId stored
       const postId = await this.cacheManager.get(`post:tempId:${tempId}`);
+      
       if (postId) {
         return { confirmed: true, postId };
       }
@@ -274,7 +276,6 @@ export class PostsController {
     }
 
     if (validationErrors.length > 0) {
-      console.log('Validation failed with errors:', validationErrors);
       const errors = validationErrors.map((error) => ({
         field: error.property,
         message: Object.values(error.constraints || {}).join(', '),
@@ -294,7 +295,6 @@ export class PostsController {
       const userId = req.user?.userId;
 
       if (!userId) {
-        console.log('❌ User ID not found in token');
         return {
           success: false,
           message: 'User ID not found in token',
@@ -302,8 +302,8 @@ export class PostsController {
         };
       }
 
-      // Generate client-side tempId for optimistic UI correlation
-      const tempId = `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      // Use client-provided tempId if available, otherwise generate one
+      const tempId = dtoInstance.tempId || `temp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 
       // Extract author (username) from JWT token
       const author = req.user?.username || 'user';
@@ -318,9 +318,7 @@ export class PostsController {
         tempId,
       };
       // Publish to RabbitMQ queue
-      console.log('Publishing to RabbitMQ...');
       this.rabbitmqService.publishPostCreate(message);
-      console.log('✅ Published to RabbitMQ successfully!');
 
       // Set Redis key for pending write tracking (30 second TTL)
       await this.cacheManager.set(`pending:${tempId}`, 'pending', 30000);
@@ -338,10 +336,15 @@ export class PostsController {
         },
       };
     } catch (error: any) {
+      console.error('❌ Failed to create post:', error);
+      console.error('Error response:', error?.response?.data);
+      console.error('Error status:', error?.status);
+      console.error('Error message:', error?.message);
+      
       return {
         success: false,
-        message: 'Post creation service temporarily unavailable',
-        status: HttpStatus.SERVICE_UNAVAILABLE,
+        message: error?.response?.data?.message || error?.message || 'Post creation service temporarily unavailable',
+        status: error?.status || HttpStatus.SERVICE_UNAVAILABLE,
       };
     }
   }

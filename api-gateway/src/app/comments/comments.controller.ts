@@ -178,11 +178,16 @@ export class CommentsController {
           pending: true,
         } as any,
       };
-    } catch (error) {
-      console.error('Failed to create comment:', error);
+    } catch (error: any) {
+      console.error('❌ Failed to create comment:', error);
+      console.error('Error response:', error?.response?.data);
+      
+      // Check for specific error types
+      const errorMessage = error?.response?.data?.message || error?.message || 'Comment creation service temporarily unavailable';
+      
       return {
         success: false,
-        message: 'Comment creation service temporarily unavailable',
+        message: errorMessage,
         status: HttpStatus.SERVICE_UNAVAILABLE,
       };
     }

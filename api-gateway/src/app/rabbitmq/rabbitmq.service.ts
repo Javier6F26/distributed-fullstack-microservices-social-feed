@@ -71,7 +71,15 @@ export class RabbitmqService implements OnModuleInit {
    */
   publishPostCreate(message: PostCreateMessage): Observable<any> {
     this.logger.log(`📤 Publishing post creation message to ${POST_CREATE_QUEUE}`);
-    return this.postClient.emit(POST_CREATE_QUEUE, message);
+    this.logger.log(`Message payload: ${JSON.stringify(message)}`);
+    const result = this.postClient.emit(POST_CREATE_QUEUE, message);
+    
+    result.subscribe({
+      next: () => this.logger.log(`✅ Message published successfully to ${POST_CREATE_QUEUE}`),
+      error: (error) => this.logger.error(`❌ Failed to publish message to ${POST_CREATE_QUEUE}:`, error),
+    });
+    
+    return result;
   }
 
   /**

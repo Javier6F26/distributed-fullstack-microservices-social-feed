@@ -1,5 +1,6 @@
 import { INestApplication, Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app/app.module';
 import { HttpErrorFilter } from './app/filters/http-error.filter';
@@ -31,6 +32,36 @@ async function bootstrap() {
     `🚀 Application is running on: http://localhost:${port}/${globalPrefix}`,
   );
   Logger.log(`📄 OpenAPI Documentation: http://localhost:${port}/docs`);
+
+  // RabbitMQ microservice for consuming events from Post and Comment services
+  const rabbitmqUri = process.env.RABBITMQ_URI || 'amqp://localhost:5672';
+  
+  // Listen for post events
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.RMQ,
+    options: {
+      urls: [rabbitmqUri],
+      queue: 'post.events',
+      queueOptions: {
+        durable: true,
+      },
+    },
+  });
+
+  // Listen for comment events
+  app.connectMicroservice<MicroserviceOptions>({
+    transport: Transport.RMQ,
+    options: {
+      urls: [rabbitmqUri],
+      queue: 'comment.events',
+      queueOptions: {
+        durable: true,
+      },
+    },
+  });
+
+  await app.startAllMicroservices();
+  Logger.log(`📬 RabbitMQ event consumers started - listening on: post.events, comment.events`);
 }
 
 bootstrap();
