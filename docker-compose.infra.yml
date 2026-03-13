@@ -1,0 +1,89 @@
+# =============================================================================
+# Docker Compose - Solo Infraestructura (Desarrollo)
+# =============================================================================
+# Este archivo levanta ÚNICAMENTE la infraestructura necesaria:
+# - MongoDB
+# - RabbitMQ
+# - Redis
+#
+# Uso:
+#   docker-compose -f docker-compose.infra.yml up -d
+#   docker-compose -f docker-compose.infra.yml down
+# =============================================================================
+
+services:
+  # ==================== Infraestructura ====================
+
+  # MongoDB - Base de datos documental
+  mongodb:
+    image: mongo:7
+    container_name: dfm-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-dev-data:/data/db
+    networks:
+      - dfm-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Redis - Caché distribuido
+  redis:
+    image: redis:7-alpine
+    container_name: dfm-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-dev-data:/data
+    networks:
+      - dfm-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # RabbitMQ - Message broker
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: dfm-rabbitmq
+    ports:
+      - "5672:5672"    # Puerto AMQP
+      - "15672:15672"  # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin
+    volumes:
+      - rabbitmq-dev-data:/var/lib/rabbitmq
+    networks:
+      - dfm-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+# Networks
+networks:
+  dfm-network:
+    driver: bridge
+    name: dfm-dev-network
+
+# Volumes
+volumes:
+  mongo-dev-data:
+    name: dfm-mongo-dev-data
+  redis-dev-data:
+    name: dfm-redis-dev-data
+  rabbitmq-dev-data:
+    name: dfm-rabbitmq-dev-data

@@ -3,7 +3,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, interval, Subscription, throwError, BehaviorSubject } from 'rxjs';
 import { tap, catchError, switchMap, filter, first } from 'rxjs/operators';
 import { getTimeUntilExpiry } from '../shared/utils/token-utils';
-import { environment } from '../environments/environment';
+import { environment } from '../../environments/environment';
 
 export interface User {
   _id: string;

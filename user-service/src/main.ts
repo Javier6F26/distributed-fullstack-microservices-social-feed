@@ -90,7 +90,7 @@ async function bootstrap() {
   // Setup documentation (separate function for clean bootstrap)
   setupDocumentation(app);
 
-  const port = process.env.PORT || 3001;
+  const port = process.env.USER_SERVICE_PORT || process.env.PORT || 3001;
   await app.listen(port);
   Logger.log(`🚀 Application is running on: http://localhost:${port}`);
   Logger.log(`📄 OpenAPI Documentation: http://localhost:${port}/docs`);
