@@ -8,8 +8,7 @@ COPY package*.json ./
 COPY nx.json ./
 COPY tsconfig*.json ./
 
-# Copy workspace packages
-COPY packages ./packages
+# Copy shared-types (needed for Nx workspace resolution)
 COPY shared-types ./shared-types
 
 # Copy all services (needed for Nx workspace resolution)
@@ -28,6 +27,9 @@ RUN npx nx sync
 # Build the API Gateway
 RUN npx nx build api-gateway --configuration=production
 
+# Prune dependencies for production (removes unused deps from node_modules)
+RUN npx nx prune api-gateway
+
 # Stage 2: Runner - Run with Node slim
 FROM node:20-slim
 
@@ -40,15 +42,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 # Copy built artifacts from builder stage
 COPY --from=builder /app/api-gateway/dist ./
 
-# Copy service package.json for runtime dependencies
-COPY --from=builder /app/api-gateway/package.json ./
+# Copy pruned node_modules from builder stage
+COPY --from=builder /app/node_modules ./node_modules
 
-# Install production dependencies only
-RUN npm install --only=production
-
-# Set environment variables
-ENV NODE_ENV=production
-ENV PORT=3000
+# Create non-root user for security
+RUN useradd -m -r -u 1001 appuser && chown -R appuser:appuser /app
+USER appuser
 
 # Expose port 3000
 EXPOSE 3000

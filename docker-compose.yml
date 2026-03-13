@@ -1,3 +1,14 @@
+# =============================================================================
+# Production Docker Compose Configuration
+# =============================================================================
+# Usage:
+#   docker-compose up -d
+#   docker-compose down
+#
+# Required: Create .env file with sensitive values (JWT_SECRET, etc.)
+# See .env.example for template
+# =============================================================================
+
 services:
   # ==================== Application Services ====================
 
@@ -9,10 +20,17 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - api-gateway
+      api-gateway:
+        condition: service_healthy
     networks:
       - app-network
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   # API Gateway - Main entry point for all API requests
   api-gateway:
@@ -22,22 +40,54 @@ services:
     ports:
       - "3000:3000"
     env_file:
-      - ./api-gateway/.env
+      - .env
     environment:
+      # Server Configuration
       - NODE_ENV=production
+      - PORT=3000
+      - HOST=0.0.0.0
+      
+      # CORS Configuration
+      - CORS_ORIGIN=${CORS_ORIGIN:-https://your-domain.com}
+      
+      # Microservice URLs (internal Docker network)
       - USER_SERVICE_URL=http://user-service:3001
       - POST_SERVICE_URL=http://post-service:3002
       - COMMENT_SERVICE_URL=http://comment-service:3003
+      
+      # Redis Configuration
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      
+      # JWT Configuration (REQUIRED - set in .env file)
+      - JWT_SECRET=${JWT_SECRET}
+      
+      # Rate Limiting
+      - RATE_LIMIT_TTL=60
+      - RATE_LIMIT_MAX=100
+      - RATE_LIMIT_AUTH_MAX=10
+      - RATE_LIMIT_REFRESH_MAX=30
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     depends_on:
-      - user-service
-      - post-service
-      - comment-service
-      - redis
+      user-service:
+        condition: service_healthy
+      post-service:
+        condition: service_healthy
+      comment-service:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - app-network
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/v1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # User Service - Handles user authentication and management
   user-service:
@@ -45,16 +95,47 @@ services:
       context: .
       dockerfile: user-service/Dockerfile
     env_file:
-      - ./user-service/.env
+      - .env
     environment:
+      # Server Configuration
       - NODE_ENV=production
-      - MONGODB_URI=mongodb://mongodb:27017/users
-      - CORS_ORIGIN=http://localhost:4200
+      - PORT=3001
+      - HOST=0.0.0.0
+      
+      # MongoDB Configuration
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017/users}
+      
+      # JWT Configuration (REQUIRED - set in .env file)
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - JWT_ACCESS_EXPIRES_IN=15m
+      - JWT_REFRESH_EXPIRES_IN=7d
+      
+      # CORS Configuration
+      - CORS_ORIGIN=${CORS_ORIGIN:-https://your-domain.com}
+      
+      # Rate Limiting
+      - RATE_LIMIT_TTL=60
+      - RATE_LIMIT_MAX=100
+      - RATE_LIMIT_AUTH_MAX=30
+      
+      # Refresh Token Cleanup
+      - REFRESH_TOKEN_CLEANUP_INTERVAL_MS=3600000
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
     networks:
       - app-network
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # Post Service - Handles posts and content management
   post-service:
@@ -62,20 +143,44 @@ services:
       context: .
       dockerfile: post-service/Dockerfile
     env_file:
-      - ./post-service/.env
+      - .env
     environment:
+      # Server Configuration
       - NODE_ENV=production
-      - MONGODB_URI=mongodb://mongodb:27017/posts
+      - PORT=3002
+      - HOST=0.0.0.0
+      
+      # MongoDB Configuration
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017/posts}
+      
+      # Redis Configuration
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
+      
+      # RabbitMQ Configuration
+      - RABBITMQ_URI=${RABBITMQ_URI:-amqp://guest:guest@rabbitmq:5672}
+      
+      # API Gateway URL (for callbacks)
+      - API_GATEWAY_URL=http://api-gateway:3000
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     depends_on:
-      - mongodb
-      - redis
-      - rabbitmq
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - app-network
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # Comment Service - Handles comments on posts
   comment-service:
@@ -83,41 +188,75 @@ services:
       context: .
       dockerfile: comment-service/Dockerfile
     env_file:
-      - ./comment-service/.env
+      - .env
     environment:
+      # Server Configuration
       - NODE_ENV=production
-      - MONGODB_URI=mongodb://mongodb:27017/comments
-      - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
+      - PORT=3003
+      - HOST=0.0.0.0
+      
+      # MongoDB Configuration
+      - MONGODB_URI=${MONGODB_URI:-mongodb://mongodb:27017/comments}
+      
+      # RabbitMQ Configuration
+      - RABBITMQ_URI=${RABBITMQ_URI:-amqp://guest:guest@rabbitmq:5672}
+      
+      # API Gateway URL (for callbacks)
+      - API_GATEWAY_URL=http://api-gateway:3000
+      
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-info}
     depends_on:
-      - mongodb
-      - rabbitmq
+      mongodb:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - app-network
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # ==================== Infrastructure Services ====================
 
   # MongoDB - Document database
   mongodb:
-    image: mongo
+    image: mongo:7
     ports:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
     networks:
       - app-network
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Redis - In-memory cache and data store
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
     ports:
       - "6379:6379"
     volumes:
       - redis-data:/data
     networks:
       - app-network
-    restart: unless-stopped
+    restart: always
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   # RabbitMQ - Message broker for event-driven architecture
   rabbitmq:
@@ -126,13 +265,19 @@ services:
       - "5672:5672"   # AMQP port
       - "15672:15672" # Management UI
     environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-admin}
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
     networks:
       - app-network
-    restart: unless-stopped
+    restart: always
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 # Networks
 networks:
@@ -142,5 +287,8 @@ networks:
 # Volumes
 volumes:
   mongo-data:
+    driver: local
   redis-data:
+    driver: local
   rabbitmq-data:
+    driver: local

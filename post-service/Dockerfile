@@ -8,8 +8,7 @@ COPY package*.json ./
 COPY nx.json ./
 COPY tsconfig*.json ./
 
-# Copy workspace packages
-COPY packages ./packages
+# Copy shared-types (needed for Nx workspace resolution)
 COPY shared-types ./shared-types
 
 # Copy all services (needed for Nx workspace resolution)
@@ -28,6 +27,9 @@ RUN npx nx sync
 # Build the Post Service
 RUN npx nx build post-service --configuration=production
 
+# Prune dependencies for production (removes unused deps from node_modules)
+RUN npx nx prune post-service
+
 # Stage 2: Runner - Run with Node slim
 FROM node:20-slim
 
@@ -40,15 +42,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 # Copy built artifacts from builder stage
 COPY --from=builder /app/post-service/dist ./
 
-# Copy service package.json for runtime dependencies
-COPY --from=builder /app/post-service/package.json ./
+# Copy pruned node_modules from builder stage
+COPY --from=builder /app/node_modules ./node_modules
 
-# Install production dependencies only
-RUN npm install --only=production
-
-# Set environment variables
-ENV NODE_ENV=production
-ENV PORT=3002
+# Create non-root user for security
+RUN useradd -m -r -u 1001 appuser && chown -R appuser:appuser /app
+USER appuser
 
 # Expose port 3002
 EXPOSE 3002
