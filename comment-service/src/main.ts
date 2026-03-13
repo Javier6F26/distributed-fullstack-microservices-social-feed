@@ -74,7 +74,7 @@ async function bootstrap() {
   app.useBodyParser('urlencoded', { limit: '10mb', extended: true });
 
   // HTTP server for REST API
-  const port = process.env.PORT || 3003;
+  const port = process.env.COMMENT_SERVICE_PORT || process.env.PORT || 3003;
   await app.listen(port);
   Logger.log(`🚀 Application is running on: http://localhost:${port}`);
   Logger.log(`📄 OpenAPI Documentation: http://localhost:${port}/docs`);

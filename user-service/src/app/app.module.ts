@@ -24,7 +24,7 @@ import { RefreshTokenModule } from './refresh-token/refresh-token.module';
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        uri: configService.get<string>('MONGODB_URI') || 'mongodb://localhost:27017/users',
+        uri: configService.get<string>('MONGODB_URI_USER') || configService.get<string>('MONGODB_URI') || 'mongodb://localhost:27017/user-service',
       }),
       inject: [ConfigService],
     }),
