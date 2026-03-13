@@ -1,4 +1,5 @@
-import { Controller, Get, Post, UseGuards, Req, Body, Logger, UseInterceptors, Throttle, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, UseGuards, Req, Body, Logger, UseInterceptors, HttpStatus } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';

@@ -15,6 +15,7 @@ import {
   UseInterceptors,
   Logger,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiBody, ApiResponse } from '@nestjs/swagger';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import {
