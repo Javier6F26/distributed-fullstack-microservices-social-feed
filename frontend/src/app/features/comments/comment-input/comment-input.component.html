@@ -11,7 +11,6 @@
           rows="1"
           maxlength="1000"
           (input)="autoResize($event)"
-          [disabled]="isSubmitting()"
         ></textarea>
         <button
           type="submit"
@@ -31,23 +30,8 @@
         </button>
       </div>
 
-      <!-- Character Counter & Error -->
-      <div class="flex justify-between items-center mt-2">
-        @if (body?.invalid && body?.touched) {
-          <div class="text-red-600 text-xs">
-            @if (body?.errors?.['required']) {
-              <span>Comment is required</span>
-            }
-            @if (body?.errors?.['maxlength']) {
-              <span>Comment must not exceed 1000 characters</span>
-            }
-            @if (body?.errors?.['whitespace']) {
-              <span>Comment cannot be only whitespace</span>
-            }
-          </div>
-        } @else {
-          <div></div>
-        }
+      <!-- Character Counter -->
+      <div class="flex justify-end items-center mt-2">
         <div class="text-gray-500 text-xs">{{ body?.value?.length || 0 }}/1000</div>
       </div>
     </div>

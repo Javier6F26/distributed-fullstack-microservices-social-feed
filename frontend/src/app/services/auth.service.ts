@@ -16,6 +16,7 @@ export interface AuthResponse {
   message: string;
   user: User;
   accessToken: string;
+  refreshToken?: string;
   tokenType: string;
   expiresIn: number;
 }
@@ -229,28 +230,39 @@ export class AuthService {
         first(),
         switchMap(() => {
           // After refresh completes, return the new token
-          return this.http.post<AuthResponse>(`${this.API_URL}/auth/refresh`, {}, {
-            withCredentials: true,
-          });
+          const refreshToken = this.getRefreshToken();
+          return this.http.post<AuthResponse>(`${this.API_URL}/auth/refresh`, 
+            refreshToken ? { refreshToken } : {},
+            { withCredentials: true }
+          );
         })
       );
     }
 
     this.isRefreshingFlag = true;
     this.refreshingSignal.set(true);
-    
+
     // Log refresh start with token state for debugging
     const hasToken = !!sessionStorage.getItem('access_token');
     const tokenExpiry = hasToken ? this.getTokenExpiryInfo() : null;
     this.logger.info(`[Token Refresh] Starting refresh - hasToken: ${hasToken}, tokenExpiry: ${tokenExpiry ? tokenExpiry.expiresIn + 's' : 'N/A'}`);
 
-    return this.http.post<AuthResponse>(`${this.API_URL}/auth/refresh`, {}, {
-      withCredentials: true,
-    }).pipe(
+    // Get refresh token from sessionStorage to send in request body
+    const refreshToken = this.getRefreshToken();
+
+    return this.http.post<AuthResponse>(`${this.API_URL}/auth/refresh`, 
+      refreshToken ? { refreshToken } : {},
+      { withCredentials: true }
+    ).pipe(
       tap((response) => {
         this.logger.info(`[Token Refresh] Success - new token expires in ${response.expiresIn}s`);
         this.accessTokenSignal.set(response.accessToken);
         sessionStorage.setItem('access_token', response.accessToken);
+        
+        // Update refresh token if a new one is provided
+        if (response.refreshToken) {
+          sessionStorage.setItem('refresh_token', response.refreshToken);
+        }
 
         // Notify waiting requests that refresh completed
         this.refreshSubject.next(response.accessToken);
@@ -316,6 +328,13 @@ export class AuthService {
   }
 
   /**
+   * Get refresh token from sessionStorage
+   */
+  getRefreshToken(): string | null {
+    return sessionStorage.getItem('refresh_token');
+  }
+
+  /**
    * Get auth headers for API calls
    */
   getAuthHeaders(): HttpHeaders {
@@ -340,6 +359,12 @@ export class AuthService {
     // Store access token in sessionStorage
     sessionStorage.setItem('access_token', response.accessToken);
     sessionStorage.setItem('user', JSON.stringify(response.user));
+
+    // Store refresh token if provided in response
+    // The API gateway should forward the refresh token from user-service
+    if (response.refreshToken) {
+      sessionStorage.setItem('refresh_token', response.refreshToken);
+    }
   }
 
   /**

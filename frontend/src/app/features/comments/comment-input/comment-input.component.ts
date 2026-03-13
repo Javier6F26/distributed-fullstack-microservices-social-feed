@@ -101,6 +101,9 @@ export class CommentInputComponent implements OnInit {
 
     this.isSubmitting.set(true);
 
+    // Disable form while submitting
+    this.commentForm.disable();
+
     const { body } = this.commentForm.value;
 
     // Generate tempId for optimistic UI correlation
@@ -110,19 +113,16 @@ export class CommentInputComponent implements OnInit {
     const user = this.authService.getCurrentUser();
 
     // Create optimistic comment for immediate display
-    const optimisticComment = {
+    const optimisticComment: Comment = {
+      _id: tempId, // Use tempId as _id until real ID is assigned
       tempId,
       postId: this.postId,
+      authorId: user?._id || '',
+      name: user?.username || 'Anonymous',
+      email: user?.email || '',
       body: body,
-      text: body,
-      author: user?.username || 'Anonymous',
-      authorUsername: user?.username || 'Anonymous',
-      userId: user?._id,
       createdAt: new Date().toISOString(),
       pending: true, // Mark as pending sync
-      likes: 0,
-      isEdited: false,
-      deleted: false,
     };
 
     try {
@@ -141,6 +141,7 @@ export class CommentInputComponent implements OnInit {
 
             // Clear input field on successful submission
             this.commentForm.reset();
+            this.commentForm.enable();
 
             // Reset textarea height using ViewChild reference
             if (this.commentTextarea) {
@@ -148,12 +149,14 @@ export class CommentInputComponent implements OnInit {
             }
           } else {
             // API returned error response
+            this.commentForm.enable();
             this.handleApiError(response.errors?.[0]?.message || 'Failed to post comment');
           }
         },
         error: (error) => {
           // API call failed (network error, server error, etc.)
           console.error('Comment creation failed:', error);
+          this.commentForm.enable();
           this.handleApiError('Failed to post comment. Please try again.');
         },
         // No complete callback - state already cleared above
@@ -161,8 +164,9 @@ export class CommentInputComponent implements OnInit {
     } catch (error) {
       // Handle synchronous error
       console.error('Comment submission error:', error);
-      this.handleApiError((error as Error)?.message || 'Failed to post comment');
+      this.commentForm.enable();
       this.isSubmitting.set(false);
+      this.handleApiError((error as Error)?.message || 'Failed to post comment');
     }
   }
 

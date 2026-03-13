@@ -24,7 +24,9 @@ import { SearchBarComponent } from '../components/search-bar/search-bar.componen
 import { DateRangeFilterComponent } from '../components/date-range-filter/date-range-filter.component';
 import { AuthModalComponent } from '../../auth/components/auth-modal/auth-modal.component';
 import { CreatePostModalComponent } from '../create-post-modal/create-post-modal.component';
+import { EditPostModalComponent } from '../edit-post-modal/edit-post-modal.component';
 import { CommentInputComponent } from '../../comments/comment-input/comment-input.component';
+import { CommentCardComponent } from '../../comments/comment-card/comment-card.component';
 
 @Component({
   selector: 'app-post-feed',
@@ -36,7 +38,9 @@ import { CommentInputComponent } from '../../comments/comment-input/comment-inpu
     DateRangeFilterComponent,
     AuthModalComponent,
     CreatePostModalComponent,
+    EditPostModalComponent,
     CommentInputComponent,
+    CommentCardComponent,
   ],
   templateUrl: './post-feed.component.html',
   styleUrls: [],
@@ -45,6 +49,8 @@ export class PostFeedComponent implements OnInit, OnDestroy {
   @ViewChild(CdkVirtualScrollViewport) viewport!: CdkVirtualScrollViewport;
   @ViewChild(SearchBarComponent) searchBar!: SearchBarComponent;
   public authService = inject(AuthService);
+  // Max posts to load (prevents performance issues with large datasets)
+  private readonly MAX_POSTS = 100;
   // State signals
   posts = signal<Post[]>([]);
   isLoading = signal(false);
@@ -52,6 +58,8 @@ export class PostFeedComponent implements OnInit, OnDestroy {
   nextCursor = signal<string | null | undefined>(undefined);
   error = signal<string | null>(null);
   hasNewPosts = signal(false);
+  // Relative time cache for posts (prevents ExpressionChangedAfterItHasBeenCheckedError)
+  postRelativeTimes = signal<Record<string, string>>({});
   // Auth modal state
   showAuthModal = signal(false);
   pendingAction = signal<{
@@ -61,6 +69,9 @@ export class PostFeedComponent implements OnInit, OnDestroy {
   } | null>(null);
   // Create post modal state
   showCreatePostModal = signal(false);
+  // Edit post modal state
+  showEditPostModal = signal(false);
+  postToEdit = signal<Post | null>(null);
   // Search and filter state
   searchQuery = signal<string>('');
   startDate = signal<string | null>(null);
@@ -75,16 +86,38 @@ export class PostFeedComponent implements OnInit, OnDestroy {
   private postService = inject(PostService);
   private notificationService = inject(NotificationService);
   private pollingSubscription?: Subscription;
+  private relativeTimeSubscription?: Subscription;
 
   ngOnInit(): void {
     this.loadPosts();
     this.startIntelligentPolling();
+    // Update relative times every minute
+    this.relativeTimeSubscription = interval(60000).subscribe(() => {
+      this.updatePostRelativeTimes();
+    });
+    // Initial update
+    this.updatePostRelativeTimes();
   }
 
   ngOnDestroy(): void {
     if (this.pollingSubscription) {
       this.pollingSubscription.unsubscribe();
     }
+    if (this.relativeTimeSubscription) {
+      this.relativeTimeSubscription.unsubscribe();
+    }
+  }
+
+  /**
+   * Update relative times for all posts
+   */
+  private updatePostRelativeTimes(): void {
+    const currentPosts = this.posts();
+    const times: Record<string, string> = {};
+    currentPosts.forEach(post => {
+      times[post._id] = this.getRelativeTime(post.createdAt);
+    });
+    this.postRelativeTimes.set(times);
   }
 
   startIntelligentPolling() {
@@ -161,6 +194,9 @@ export class PostFeedComponent implements OnInit, OnDestroy {
         }
         this.nextCursor.set(response.nextCursor);
         this.isLoading.set(false);
+        
+        // Update relative times after posts are loaded
+        this.updatePostRelativeTimes();
 
         // Show notification if no posts
         if (response.data.length === 0) {
@@ -220,27 +256,30 @@ export class PostFeedComponent implements OnInit, OnDestroy {
   }
 
   onScroll() {
+    // Don't load more if we've reached the max
+    if (this.posts().length >= this.MAX_POSTS) {
+      return;
+    }
+
     if (this.isFetchingMore() || this.nextCursor() === null || !this.viewport) {
       return;
     }
 
-    // Check if we are close to the bottom
     const end = this.viewport.getRenderedRange().end;
     const total = this.viewport.getDataLength();
 
-    console.log('Scroll check:', {
-      end,
-      total,
-      hasMore: this.nextCursor() !== null,
-    });
-
-    if (end > 0 && end >= total - 5) {
-      console.log('Fetching more posts...');
+    // Trigger when user scrolls near the end
+    if (end > 0 && end >= total - 3) {
       this.fetchMore();
     }
   }
 
   fetchMore() {
+    // Don't load more if we've reached the max
+    if (this.posts().length >= this.MAX_POSTS) {
+      return;
+    }
+
     const cursor = this.nextCursor();
     if (!cursor) {
       console.log('No cursor available, cannot fetch more');
@@ -364,6 +403,9 @@ export class PostFeedComponent implements OnInit, OnDestroy {
    * Handle post creation - add optimistic post to feed
    */
   onPostCreated(event: { post: Post; tempId: string }): void {
+    // Clear pending flag before adding to feed
+    event.post.pending = false;
+
     // Add optimistic post to top of feed immediately
     const currentPosts = this.posts();
     this.posts.set([event.post, ...currentPosts]);
@@ -395,14 +437,24 @@ export class PostFeedComponent implements OnInit, OnDestroy {
    * Handle comment submission - add optimistic comment to list
    */
   onCommentSubmitted(event: { comment: Comment; tempId: string }): void {
-    // Add optimistic comment to the expanded comments map
-    const currentMap = this.expandedComments();
     const postId = event.comment.postId;
-    const existingComments = currentMap.get(postId) || [];
-
+    
+    // Find the post to get existing recentComments
+    const post = this.posts().find(p => p._id === postId);
+    const existingRecentComments = post?.recentComments || [];
+    
+    // Check if comments are already expanded for this post
+    const currentMap = this.expandedComments();
+    const existingExpandedComments = currentMap.get(postId) || [];
+    
+    // Use expanded comments if they exist, otherwise use recentComments from the post
+    const baseComments = existingExpandedComments.length > 0 
+      ? existingExpandedComments 
+      : existingRecentComments;
+    
     // Add optimistic comment at the top
     this.expandedComments.set(
-      new Map(currentMap).set(postId, [event.comment, ...existingComments]),
+      new Map(currentMap).set(postId, [event.comment, ...baseComments]),
     );
 
     // Show success notification
@@ -422,6 +474,66 @@ export class PostFeedComponent implements OnInit, OnDestroy {
         event.postId,
         existingComments.filter((c) => c.tempId !== event.tempId),
       ),
+    );
+  }
+
+  /**
+   * Handle comment deleted from comment-card
+   */
+  onCommentDeleted(commentId: string, post: Post): void {
+    const currentMap = this.expandedComments();
+    const postId = post._id;
+    const existingComments = currentMap.get(postId) || [];
+
+    // Remove comment optimistically
+    this.expandedComments.set(
+      new Map(currentMap).set(
+        postId,
+        existingComments.filter((c) => c._id !== commentId),
+      ),
+    );
+  }
+
+  /**
+   * Handle comment delete failure - restore the comment
+   */
+  onCommentDeleteFailed(event: { commentId: string; comment: Comment }): void {
+    const currentMap = this.expandedComments();
+    const comment = event.comment;
+    const postId = comment.postId;
+    const existingComments = currentMap.get(postId) || [];
+
+    // Restore the comment
+    this.expandedComments.set(
+      new Map(currentMap).set(postId, [...existingComments, comment]),
+    );
+  }
+
+  /**
+   * Handle comment updated from comment-card
+   */
+  onCommentUpdated(event: { commentId: string; body: string }): void {
+    // The comment-card handles optimistic update internally,
+    // we just need to refresh the post's recentComments via RabbitMQ event
+    // This will be handled automatically when the backend emits the event
+  }
+
+  /**
+   * Handle comment update failure - restore original comment
+   */
+  onCommentUpdateFailed(event: { commentId: string; originalComment: Comment }): void {
+    const currentMap = this.expandedComments();
+    const comment = event.originalComment;
+    const postId = comment.postId;
+    const existingComments = currentMap.get(postId) || [];
+
+    // Find and replace the comment with the original
+    const updatedComments = existingComments.map(c => 
+      c._id === comment._id ? comment : c
+    );
+
+    this.expandedComments.set(
+      new Map(currentMap).set(postId, updatedComments),
     );
   }
 
@@ -467,9 +579,65 @@ export class PostFeedComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Check if a post has been edited
+   */
+  isEdited(post: Post): boolean {
+    if (!post.updatedAt || !post.createdAt) {
+      return false;
+    }
+    return new Date(post.updatedAt) > new Date(post.createdAt);
+  }
+
+  /**
+   * Get last 3 comments for display (most recent first)
+   */
+  getLastThreeComments(comments: Comment[] | undefined): Comment[] {
+    if (!comments || comments.length === 0) {
+      return [];
+    }
+    // Comments are already in newest-first order, take first 3
+    return comments.slice(0, 3);
+  }
+
+  /**
+   * Get relative time string from ISO date
+   */
+  getRelativeTime(dateString: string | undefined): string {
+    if (!dateString) {
+      return '';
+    }
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) {
+      return 'Just now';
+    } else if (diffMins < 60) {
+      return `${diffMins}m ago`;
+    } else if (diffHours < 24) {
+      return `${diffHours}h ago`;
+    } else if (diffDays < 7) {
+      return `${diffDays}d ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  }
+
+  /**
    * Check if current user can delete a post
    */
   canDeletePost(post: Post): boolean {
+    const currentUser = this.authService.getCurrentUser();
+    return currentUser?._id === post.authorId;
+  }
+
+  /**
+   * Check if current user can edit a post
+   */
+  canEditPost(post: Post): boolean {
     const currentUser = this.authService.getCurrentUser();
     return currentUser?._id === post.authorId;
   }
@@ -483,6 +651,52 @@ export class PostFeedComponent implements OnInit, OnDestroy {
     if (confirmed) {
       this.confirmDeletePost(post);
     }
+  }
+
+  /**
+   * Handle edit post click
+   */
+  onEditPost(post: Post): void {
+    if (!this.authService.isAuthenticated()) {
+      this.notificationService.warning('Please login to edit posts', 3000);
+      return;
+    }
+    this.postToEdit.set(post);
+    this.showEditPostModal.set(true);
+  }
+
+  /**
+   * Handle post update - update the post in the list
+   */
+  onPostUpdated(event: { post: Post; postId: string }): void {
+    // Update the post in the list with the updated data
+    const currentPosts = this.posts();
+    const updatedPosts = currentPosts.map(p => 
+      p._id === event.postId ? event.post : p
+    );
+    this.posts.set(updatedPosts);
+    
+    // Close modal
+    this.showEditPostModal.set(false);
+    this.postToEdit.set(null);
+  }
+
+  /**
+   * Handle post update failure - show error (no rollback needed as content wasn't changed optimistically)
+   */
+  onPostUpdateFailed(event: { postId: string }): void {
+    // Close modal
+    this.showEditPostModal.set(false);
+    this.postToEdit.set(null);
+    // Error notification already shown by the modal component
+  }
+
+  /**
+   * Close edit post modal
+   */
+  onCloseEditPostModal(): void {
+    this.showEditPostModal.set(false);
+    this.postToEdit.set(null);
   }
 
   /**

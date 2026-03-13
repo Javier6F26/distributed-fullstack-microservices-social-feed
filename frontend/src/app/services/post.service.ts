@@ -160,4 +160,17 @@ export class PostService {
   deletePost(postId: string): Observable<void> {
     return this.http.delete<void>(`${this.API_URL}/posts/${postId}`);
   }
+
+  /**
+   * Update a post by ID.
+   * Only the author can update their own post.
+   *
+   * @param postId - Post ID to update
+   * @param title - New title (5-100 characters)
+   * @param body - New body (10-5000 characters)
+   * @returns Observable<CreatePostResponse> with updated post
+   */
+  updatePost(postId: string, title: string, body: string): Observable<CreatePostResponse> {
+    return this.http.put<CreatePostResponse>(`${this.API_URL}/posts/${postId}`, { title, body });
+  }
 }

@@ -112,6 +112,32 @@ export class CommentListComponent implements OnChanges, OnInit {
   }
 
   /**
+   * Handle comment update (optimistic UI)
+   */
+  onCommentUpdated(event: { commentId: string; body: string }) {
+    // Update comment optimistically
+    this.comments.update(comments =>
+      comments.map(c =>
+        c._id === event.commentId
+          ? { ...c, body: event.body, updatedAt: new Date().toISOString() }
+          : c
+      )
+    );
+  }
+
+  /**
+   * Handle comment update failure (rollback)
+   */
+  onCommentUpdateFailed(event: { commentId: string; originalComment: Comment }) {
+    // Rollback - restore original comment
+    this.comments.update(comments =>
+      comments.map(c =>
+        c._id === event.commentId ? event.originalComment : c
+      )
+    );
+  }
+
+  /**
    * Track by function for ngFor
    */
   trackByComment(index: number, comment: Comment): string {

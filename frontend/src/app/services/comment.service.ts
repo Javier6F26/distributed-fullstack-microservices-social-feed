@@ -71,4 +71,16 @@ export class CommentService {
   deleteComment(commentId: string): Observable<void> {
     return this.http.delete<void>(`${this.API_URL}/comments/${commentId}`);
   }
+
+  /**
+   * Update a comment by ID.
+   * Only the author can update their own comment.
+   *
+   * @param commentId - Comment ID to update
+   * @param body - New body (1-1000 characters)
+   * @returns Observable<CreateCommentResponse> with updated comment
+   */
+  updateComment(commentId: string, body: string): Observable<CreateCommentResponse> {
+    return this.http.put<CreateCommentResponse>(`${this.API_URL}/comments/${commentId}`, { body });
+  }
 }

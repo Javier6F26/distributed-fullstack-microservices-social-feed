@@ -41,6 +41,8 @@
           [comment]="comment"
           (commentDeleted)="onCommentDeleted($event)"
           (commentDeleteFailed)="onCommentDeleteFailed($event)"
+          (commentUpdated)="onCommentUpdated($event)"
+          (commentUpdateFailed)="onCommentUpdateFailed($event)"
         />
       }
     }

@@ -1,9 +1,10 @@
-import { Component, Input, Output, EventEmitter, inject, signal } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, signal, OnInit, OnDestroy, OnChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import type { Comment } from '../../../services/comment.service';
 import { AuthService } from '../../../services/auth.service';
 import { CommentService } from '../../../services/comment.service';
 import { NotificationService } from '../../../services/notification.service';
+import { interval, Subscription } from 'rxjs';
 
 /**
  * Comment Card Component
@@ -17,18 +18,54 @@ import { NotificationService } from '../../../services/notification.service';
   templateUrl: './comment-card.component.html',
   styleUrls: ['./comment-card.component.scss'],
 })
-export class CommentCardComponent {
+export class CommentCardComponent implements OnInit, OnChanges, OnDestroy {
   @Input() comment!: Comment;
   @Output() commentDeleted = new EventEmitter<string>();
   @Output() commentDeleteFailed = new EventEmitter<{ commentId: string; comment: Comment }>();
+  @Output() commentUpdated = new EventEmitter<{ commentId: string; body: string }>();
+  @Output() commentUpdateFailed = new EventEmitter<{ commentId: string; originalComment: Comment }>();
 
   // State
   isDeleting = signal(false);
+  isEditing = signal(false);
+  editBody = signal('');
+  relativeTime = signal('');
 
   // Inject services
   private authService = inject(AuthService);
   private commentService = inject(CommentService);
   private notificationService = inject(NotificationService);
+
+  // Update relative time every minute
+  private timeUpdateSubscription?: Subscription;
+
+  ngOnInit(): void {
+    // Update relative time immediately
+    this.updateRelativeTime();
+    
+    // Update relative time every minute
+    this.timeUpdateSubscription = interval(60000).subscribe(() => {
+      this.updateRelativeTime();
+    });
+  }
+
+  ngOnChanges(): void {
+    // Update relative time when comment input changes
+    if (this.comment?.createdAt) {
+      this.updateRelativeTime();
+    }
+  }
+
+  ngOnDestroy(): void {
+    this.timeUpdateSubscription?.unsubscribe();
+  }
+
+  /**
+   * Update relative time signal
+   */
+  private updateRelativeTime(): void {
+    this.relativeTime.set(this.getRelativeTime(this.comment.createdAt));
+  }
 
   /**
    * Check if current user can delete the comment
@@ -36,7 +73,11 @@ export class CommentCardComponent {
   canDeleteComment(): boolean {
     const currentUser = this.authService.getCurrentUser();
     // Check if comment has authorId field (from API)
-    return currentUser?._id === this.comment.authorId;
+    const currentUserId = currentUser?._id;
+    const commentAuthorId = this.comment.authorId;
+    
+    // Both must exist and match
+    return !!(currentUserId && commentAuthorId && currentUserId === commentAuthorId);
   }
 
   /**
@@ -110,5 +151,61 @@ export class CommentCardComponent {
       return false;
     }
     return new Date(comment.updatedAt) > new Date(comment.createdAt);
+  }
+
+  /**
+   * Start editing a comment
+   */
+  onStartEdit(): void {
+    this.editBody.set(this.comment.body);
+    this.isEditing.set(true);
+  }
+
+  /**
+   * Cancel editing
+   */
+  onCancelEdit(): void {
+    this.isEditing.set(false);
+    this.editBody.set('');
+  }
+
+  /**
+   * Save edited comment
+   */
+  onSaveEdit(): void {
+    const body = this.editBody().trim();
+
+    if (!body || body.length < 1 || body.length > 1000) {
+      this.notificationService.warning('Comment must be between 1-1000 characters', 3000);
+      return;
+    }
+
+    // Emit update event for parent to handle optimistic update
+    this.commentUpdated.emit({ commentId: this.comment._id, body });
+
+    // Call service to update
+    this.commentService.updateComment(this.comment._id, body).subscribe({
+      next: () => {
+        this.isEditing.set(false);
+        this.editBody.set('');
+        this.notificationService.success('Comment updated successfully', 3000);
+      },
+      error: (error) => {
+        console.error('Failed to update comment:', error);
+        this.notificationService.error('Failed to update comment. Please try again.', 5000);
+        // Emit failure event for parent to rollback
+        this.commentUpdateFailed.emit({ commentId: this.comment._id, originalComment: this.comment });
+        this.isEditing.set(false);
+        this.editBody.set('');
+      },
+    });
+  }
+
+  /**
+   * Handle textarea input event and update editBody signal
+   */
+  onEditBodyInput(event: Event): void {
+    const target = event.target as HTMLTextAreaElement;
+    this.editBody.set(target.value);
   }
 }
