@@ -5,7 +5,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { PostSyncTracker, PostSyncTrackerDocument } from '../schemas/post-sync-tracker.schema';
 import { Comment } from '../schemas/comment.schema';
-import { PostComment } from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
+import { PostComment } from '@app/shared-types';
 import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
 
 @Injectable()

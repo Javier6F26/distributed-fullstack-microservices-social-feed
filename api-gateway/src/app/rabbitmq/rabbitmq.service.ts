@@ -9,7 +9,7 @@ import {
   POST_CREATE_QUEUE_OPTIONS,
   COMMENT_CREATE_QUEUE_OPTIONS,
 } from './rabbitmq.constants';
-import { PostCreateMessage, CommentCreateMessage } from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
+import { PostCreateMessage, CommentCreateMessage } from '@app/shared-types';
 import { Observable } from 'rxjs';
 
 /**

@@ -8,7 +8,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
-import { CommentCreateMessage, CommentResponse } from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
+import { CommentCreateMessage, CommentResponse } from '@app/shared-types';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { Throttle } from '@nestjs/throttler';

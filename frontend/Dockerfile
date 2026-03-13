@@ -35,7 +35,7 @@ FROM nginx:alpine
 # Install curl for health checks
 RUN apk add --no-cache curl
 
-# Copy nginx configuration for SPA routing with production settings
+# Copy nginx configuration for SPA routing with production settings and API proxy
 COPY <<EOF /etc/nginx/conf.d/default.conf
 server {
     listen 80;
@@ -55,6 +55,22 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # API Proxy - forward /api requests to API Gateway
+    location /api {
+        proxy_pass http://api-gateway:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_cache_bypass \$http_upgrade;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
 
     # SPA routing - all routes go to index.html
     location / {

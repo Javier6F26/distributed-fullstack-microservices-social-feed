@@ -69,7 +69,7 @@ jobs:
           file: ./api-gateway/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ env.REPO_OWNER }}/api-gateway:prod
-            ghcr.io/${{ env.REPO_OWNER }}/api-gateway:${{ github.sha }}
+            ghcr.io/${{ env.REPO_OWNER }}/distributed-fullstack-microservices-api-gateway:prod
+            ghcr.io/${{ env.REPO_OWNER }}/distributed-fullstack-microservices-api-gateway:${{ github.sha }}
           cache-from: type=gha,scope=api-gateway
           cache-to: type=gha,mode=max,ignore-error=true,compression=zstd,compression-level=3

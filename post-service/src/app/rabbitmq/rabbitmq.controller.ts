@@ -6,7 +6,7 @@ import {
   CommentCreatedEvent,
   CommentUpdatedEvent,
   CommentDeletedEvent,
-} from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
+} from '@app/shared-types';
 import {
   POST_CREATE_QUEUE,
   COMMENT_CREATED_EVENT,

@@ -5,7 +5,7 @@ import {
   RABBITMQ_URI_KEY,
   RABBITMQ_DEFAULT_URI,
 } from './rabbitmq.constants';
-import { PostComment } from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
+import { PostComment } from '@app/shared-types';
 
 /**
  * RabbitMQ service for Comment Service.

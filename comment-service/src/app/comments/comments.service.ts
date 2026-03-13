@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from '@nes
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Comment, CommentDocument } from '../schemas/comment.schema';
-import { CommentCreateMessage, PostComment } from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
+import { CommentCreateMessage, PostComment } from '@app/shared-types';
 import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
 
 @Injectable()

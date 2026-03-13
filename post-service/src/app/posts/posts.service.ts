@@ -4,7 +4,7 @@ import { Model, Types } from 'mongoose';
 import { Post, PostDocument } from '../schemas/post.schema';
 import { SearchPostsDto } from './dto/search-posts.dto';
 import { FilterPostsDto } from './dto/filter-posts.dto';
-import { PostCreateMessage, PostComment } from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
+import { PostCreateMessage, PostComment } from '@app/shared-types';
 import { RabbitmqService } from '../rabbitmq/rabbitmq.service';
 
 @Injectable()

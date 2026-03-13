@@ -30,7 +30,7 @@ import { UpdatePostDto } from './dto/update-post.dto';
 import {
   PostCreateMessage,
   PostResponse,
-} from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
+} from '@app/shared-types';
 import { validate } from 'class-validator';
 import { plainToInstance } from 'class-transformer';
 import { Throttle } from '@nestjs/throttler';

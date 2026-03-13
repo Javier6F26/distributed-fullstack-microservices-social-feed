@@ -16,7 +16,11 @@
     "strict": true,
     "target": "es2022",
     "customConditions": [
-      "@prueba-tecnica-fullstack-angular-nest-js-mongo-db/source"
-    ]
+      "@app/source"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@app/shared-types": ["shared-types/src/index.ts"]
+    }
   }
 }

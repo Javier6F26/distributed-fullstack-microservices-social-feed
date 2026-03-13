@@ -42,7 +42,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 # Copy built artifacts and node_modules from builder stage
 COPY --from=builder /app/post-service/dist ./
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/shared-types ./node_modules/@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types
+COPY --from=builder /app/shared-types ./node_modules/@app/shared-types
 
 # Create non-root user for security
 RUN useradd -m -r -u 1001 appuser && chown -R appuser:appuser /app

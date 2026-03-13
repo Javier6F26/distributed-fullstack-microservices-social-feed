@@ -1,5 +1,5 @@
 {
-  "name": "@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types",
+  "name": "@app/shared-types",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
   "exports": {
     "./package.json": "./package.json",
     ".": {
-      "@prueba-tecnica-fullstack-angular-nest-js-mongo-db/source": "./src/index.ts",
+      "@app/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
