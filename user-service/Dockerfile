@@ -8,8 +8,7 @@ COPY package*.json ./
 COPY nx.json ./
 COPY tsconfig*.json ./
 
-# Copy workspace packages
-COPY packages ./packages
+# Copy shared-types (needed for Nx workspace resolution)
 COPY shared-types ./shared-types
 
 # Copy all services (needed for Nx workspace resolution)

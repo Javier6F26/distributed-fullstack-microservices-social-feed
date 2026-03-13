@@ -48,3 +48,6 @@ tests
 
 # Angular
 .angular
+
+# Empty directories
+packages
