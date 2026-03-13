@@ -15,7 +15,7 @@ export interface Post {
   deletedAt?: Date | string;
   authorDeleted?: boolean;
   authorDeletedAt?: Date | string;
-  recentComments?: any[];
+  recentComments?: PostComment[];
 }
 
 /**

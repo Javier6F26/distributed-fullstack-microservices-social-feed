@@ -8,7 +8,6 @@ import { FilterPostsDto } from './dto/filter-posts.dto';
 
 describe('PostsService', () => {
   let service: PostsService;
-  let postModel: Model<PostDocument>;
 
   const mockPost = {
     _id: 'test-id',

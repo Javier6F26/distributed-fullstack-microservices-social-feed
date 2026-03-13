@@ -70,6 +70,10 @@ function setupDocumentation(app: INestApplication): void {
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Increase body size limit for bulk operations (default is 100kb)
+  app.useBodyParser('json', { limit: '10mb' });
+  app.useBodyParser('urlencoded', { limit: '10mb', extended: true });
+
   // HTTP server for REST API
   const port = process.env.PORT || 3002;
   await app.listen(port);
@@ -89,34 +93,12 @@ async function bootstrap() {
     },
   });
 
-  // RabbitMQ microservice for consuming comment events
+  // RabbitMQ microservice for consuming comment events from single queue
   app.connectMicroservice<MicroserviceOptions>({
     transport: Transport.RMQ,
     options: {
       urls: [rabbitmqUri],
-      queue: 'comment.created',
-      queueOptions: {
-        durable: true,
-      },
-    },
-  });
-
-  app.connectMicroservice<MicroserviceOptions>({
-    transport: Transport.RMQ,
-    options: {
-      urls: [rabbitmqUri],
-      queue: 'comment.updated',
-      queueOptions: {
-        durable: true,
-      },
-    },
-  });
-
-  app.connectMicroservice<MicroserviceOptions>({
-    transport: Transport.RMQ,
-    options: {
-      urls: [rabbitmqUri],
-      queue: 'comment.deleted',
+      queue: 'comment.events',
       queueOptions: {
         durable: true,
       },
@@ -124,7 +106,7 @@ async function bootstrap() {
   });
 
   await app.startAllMicroservices();
-  Logger.log(`📬 RabbitMQ microservice started - listening on queues: post.create, comment.created, comment.updated, comment.deleted`);
+  Logger.log(`📬 RabbitMQ microservice started - listening on queues: post.create, comment.events`);
 
   setupDocumentation(app);
 }

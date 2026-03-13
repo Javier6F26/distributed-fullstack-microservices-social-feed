@@ -5,8 +5,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CommentsModule } from './comments/comments.module';
-import { DeletionModule } from './deletion/deletion.module';
 import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
+import { CommentsSyncModule } from './comments-sync/comments-sync.module';
 
 @Module({
   imports: [
@@ -19,8 +19,8 @@ import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
       inject: [ConfigService],
     }),
     CommentsModule,
-    DeletionModule,
     RabbitmqModule,
+    CommentsSyncModule,
   ],
   controllers: [AppController],
   providers: [AppService],

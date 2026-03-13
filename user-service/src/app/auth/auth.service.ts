@@ -1,8 +1,9 @@
-import { Injectable, ConflictException, UnauthorizedException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, ConflictException, UnauthorizedException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { JwtService } from '@nestjs/jwt';
-import { Response, Request } from 'express';
+import { JwtService, JwtSignOptions } from '@nestjs/jwt';
+import type { StringValue } from 'ms';
+import { Response } from 'express';
 import * as bcrypt from 'bcrypt';
 import { User, UserDocument } from '../schemas/user.schema';
 import { RegisterUserDto } from './dto/register-user.dto';
@@ -11,7 +12,6 @@ import { RefreshTokenService } from '../refresh-token/refresh-token.service';
 
 // Security constants
 const MAX_FAILED_LOGIN_ATTEMPTS = 5;
-const LOCKOUT_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
 
 @Injectable()
 export class AuthService {
@@ -80,7 +80,7 @@ export class AuthService {
 
     if (!user) {
       // Log failed attempt (user not found)
-      await this.logFailedLoginAttempt(identifier, clientIp, 'User not found');
+      this.logger.warn(`Failed login attempt - User not found: identifier=${identifier}, IP: ${clientIp || 'unknown'}`);
       throw new UnauthorizedException('User not found');
     }
 
@@ -88,31 +88,11 @@ export class AuthService {
       throw new UnauthorizedException('Account is deactivated');
     }
 
-    // Check if account is locked due to too many failed attempts
-    if (user.failedLoginAttempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
-      // Check if lockout should be lifted (15 minutes cooldown)
-      const now = new Date().getTime();
-      const lastFailedAt = user.lastFailedLoginAt ? new Date(user.lastFailedLoginAt).getTime() : 0;
-
-      if (now - lastFailedAt < LOCKOUT_COOLDOWN_MS) {
-        throw new UnauthorizedException('Account locked due to too many failed attempts. Please try again later.');
-      }
-
-      // Reset failed attempts after lockout period
-      user.failedLoginAttempts = 0;
-      await user.save();
-    }
-
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
-      // Increment failed login attempts
-      await this.incrementFailedLoginAttempts(user, clientIp);
       throw new UnauthorizedException('Invalid password');
     }
-
-    // Successful login - reset failed attempts and log success
-    await this.logSuccessfulLogin(user, clientIp);
 
     // Generate JWT tokens
     const tokens = await this.generateTokens(user, clientIp);
@@ -126,40 +106,6 @@ export class AuthService {
       },
       ...tokens,
     };
-  }
-
-  /**
-   * Increment failed login attempts counter
-   */
-  private async incrementFailedLoginAttempts(user: UserDocument, clientIp?: string) {
-    user.failedLoginAttempts += 1;
-    user.lastFailedLoginAt = new Date();
-    user.lastLoginIp = clientIp || null;
-    await user.save();
-
-    // Log failed attempt
-    this.logger.warn(`[AUDIT] Failed login attempt for user: ${user.email}, IP: ${clientIp || 'unknown'}, Attempt: ${user.failedLoginAttempts}`);
-  }
-
-  /**
-   * Log failed login attempt for non-existent user
-   */
-  private async logFailedLoginAttempt(identifier: string, clientIp?: string, reason?: string) {
-    // Log failed attempt for non-existent user
-    this.logger.warn(`[AUDIT] Failed login attempt - ${reason}: identifier=${identifier}, IP: ${clientIp || 'unknown'}`);
-  }
-
-  /**
-   * Log successful login
-   */
-  private async logSuccessfulLogin(user: UserDocument, clientIp?: string) {
-    user.failedLoginAttempts = 0;
-    user.lastLoginAt = new Date();
-    user.lastLoginIp = clientIp || null;
-    await user.save();
-
-    // Log successful login
-    this.logger.log(`[AUDIT] Successful login for user: ${user.email} (${user._id}), IP: ${clientIp || 'unknown'}`);
   }
 
   /**
@@ -189,7 +135,7 @@ export class AuthService {
 
       // Generate new tokens
       return await this.generateTokens(user);
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
   }
@@ -199,16 +145,16 @@ export class AuthService {
    */
   private async generateTokens(user: UserDocument, clientIp?: string) {
     const payload = {
-      sub: user._id,
+      sub: user._id.toString(),
       username: user.username,
       email: user.email,
     };
 
     // Access token: 15 minutes
-    const accessToken = await this.jwtService.signAsync(payload, {
-      expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
-      secret: process.env.JWT_SECRET,
-    });
+    const jwtSignOptions: JwtSignOptions = {
+      expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN || '15m') as StringValue,
+    };
+    const accessToken = await this.jwtService.signAsync(payload, jwtSignOptions);
 
     // Refresh token: 7 days (stored in database)
     const refreshTokenResult = await this.refreshTokenService.generateRefreshToken(user._id, clientIp);
@@ -233,15 +179,15 @@ export class AuthService {
     }
 
     const payload = {
-      sub: user._id,
+      sub: user._id.toString(),
       username: user.username,
       email: user.email,
     };
 
-    return await this.jwtService.signAsync(payload, {
-      expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',
-      secret: process.env.JWT_SECRET,
-    });
+    const jwtSignOptions: JwtSignOptions = {
+      expiresIn: (process.env.JWT_ACCESS_EXPIRES_IN || '15m') as StringValue,
+    };
+    return await this.jwtService.signAsync(payload, jwtSignOptions);
   }
 
   /**
@@ -250,11 +196,17 @@ export class AuthService {
    * @param refreshToken - The refresh token to set
    * @param rememberMe - If false, creates a session-only cookie (no maxAge, expires on browser close)
    */
-  setRefreshTokenCookie(response: Response, refreshToken: string, rememberMe: boolean = true) {
+  setRefreshTokenCookie(response: Response, refreshToken: string, rememberMe = true) {
     const isProduction = process.env.NODE_ENV === 'production';
-    const cookieOptions: any = {
+    const cookieOptions: {
+      httpOnly: boolean;
+      secure: boolean;
+      sameSite: 'strict';
+      path: string;
+      maxAge?: number;
+    } = {
       httpOnly: true,
-      secure: isProduction, // Only send over HTTPS in production
+      secure: isProduction,
       sameSite: 'strict',
       path: '/',
     };
@@ -262,7 +214,7 @@ export class AuthService {
     // When rememberMe is true, set expiry to 7 days
     // When rememberMe is false, omit maxAge to create session-only cookie (expires on browser close)
     if (rememberMe) {
-      cookieOptions.maxAge = parseInt(process.env.JWT_REFRESH_EXPIRES_IN) || 7 * 24 * 60 * 60 * 1000; // Default 7 days
+      cookieOptions.maxAge = parseInt(process.env.JWT_REFRESH_EXPIRES_IN ?? '7d') || 7 * 24 * 60 * 60 * 1000; // Default 7 days
     }
 
     response.cookie('refreshToken', refreshToken, cookieOptions);
@@ -274,7 +226,7 @@ export class AuthService {
   clearRefreshTokenCookie(response: Response) {
     response.clearCookie('refreshToken', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: process.env.NODE_ENV === 'production' ? true : undefined,
       sameSite: 'strict',
       path: '/',
     });
@@ -290,10 +242,11 @@ export class AuthService {
       return null;
     }
 
+    const { _id, username, email } = user;
     return {
-      _id: user._id,
-      username: user.username,
-      email: user.email,
+      _id: _id.toString(),
+      username,
+      email,
     };
   }
 

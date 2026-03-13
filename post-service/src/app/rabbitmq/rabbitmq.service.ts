@@ -55,6 +55,19 @@ export class RabbitmqService implements OnModuleInit {
   }
 
   /**
+   * Emit post.create.failed event to event queue.
+   * @param payload - Event payload with tempId and error message
+   */
+  async emitPostCreateFailed(payload: { tempId: string; error: string }) {
+    try {
+      this.client.emit('post.create.failed', payload);
+      this.logger.log(`📤 Emitted post.create.failed event for tempId: ${payload.tempId}`);
+    } catch (error) {
+      this.logger.error('Failed to emit post.create.failed event:', error.message);
+    }
+  }
+
+  /**
    * Emit post.updated event to event queue.
    * @param postId - The updated post ID
    * @param post - The updated post document

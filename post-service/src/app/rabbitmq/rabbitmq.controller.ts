@@ -1,5 +1,5 @@
 import { Controller } from '@nestjs/common';
-import { MessagePattern, Payload } from '@nestjs/microservices';
+import { MessagePattern, Payload, EventPattern } from '@nestjs/microservices';
 import { PostsService } from '../posts/posts.service';
 import {
   PostCreateMessage,
@@ -55,7 +55,7 @@ export class RabbitmqController {
    *
    * @param event - CommentCreatedEvent payload
    */
-  @MessagePattern(COMMENT_CREATED_EVENT)
+  @EventPattern(COMMENT_CREATED_EVENT)
   async handleCommentCreated(@Payload() event: CommentCreatedEvent) {
     try {
       await this.postsService.updatePostRecentComments(event.postId, event.recentComments);
@@ -72,7 +72,7 @@ export class RabbitmqController {
    *
    * @param event - CommentUpdatedEvent payload
    */
-  @MessagePattern(COMMENT_UPDATED_EVENT)
+  @EventPattern(COMMENT_UPDATED_EVENT)
   async handleCommentUpdated(@Payload() event: CommentUpdatedEvent) {
     try {
       await this.postsService.updatePostRecentComments(event.postId, event.recentComments);
@@ -89,13 +89,31 @@ export class RabbitmqController {
    *
    * @param event - CommentDeletedEvent payload
    */
-  @MessagePattern(COMMENT_DELETED_EVENT)
+  @EventPattern(COMMENT_DELETED_EVENT)
   async handleCommentDeleted(@Payload() event: CommentDeletedEvent) {
     try {
       await this.postsService.updatePostRecentComments(event.postId, event.recentComments);
       return { success: true, commentId: event.commentId };
     } catch (error) {
       console.error('Failed to process comment.deleted event:', (error as Error).message);
+      throw error; // Let NestJS handle nack to DLQ
+    }
+  }
+
+  /**
+   * Handle comment.sync events from RabbitMQ.
+   * Recovery mechanism: Updates the post with recentComments array from cron sync.
+   * Reuses the same logic as comment.created/updated/deleted handlers.
+   *
+   * @param event - Comment sync event payload (postId and recentComments)
+   */
+  @EventPattern('comment.sync')
+  async handleCommentSync(@Payload() event: { postId: string; recentComments: any[] }) {
+    try {
+      await this.postsService.updatePostRecentComments(event.postId, event.recentComments);
+      return { success: true, postId: event.postId };
+    } catch (error) {
+      console.error('Failed to process comment.sync event:', (error as Error).message);
       throw error; // Let NestJS handle nack to DLQ
     }
   }

@@ -2,6 +2,7 @@ import { Module, Global } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ConfigModule } from '@nestjs/config';
 import { RabbitmqService } from './rabbitmq.service';
+import { RabbitmqEventsConsumer } from './rabbitmq-events.consumer';
 import {
   POST_CREATE_QUEUE,
   COMMENT_CREATE_QUEUE,
@@ -40,7 +41,7 @@ import {
       },
     ]),
   ],
-  providers: [RabbitmqService],
+  providers: [RabbitmqService, RabbitmqEventsConsumer],
   exports: [RabbitmqService],
 })
 export class RabbitmqModule {}

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getModelToken } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { Types } from 'mongoose';
 import { RefreshTokenService } from './refresh-token.service';
 import { RefreshToken, RefreshTokenDocument } from './schemas/refresh-token.schema';
 import { JwtService } from '@nestjs/jwt';
@@ -8,7 +8,6 @@ import { ConfigService } from '@nestjs/config';
 
 describe('RefreshTokenService', () => {
   let service: RefreshTokenService;
-  let refreshTokenModel: Model<RefreshTokenDocument>;
   let jwtService: JwtService;
 
   const mockUserId = new Types.ObjectId();
@@ -192,12 +191,6 @@ describe('RefreshTokenService', () => {
 
   describe('rotateRefreshToken', () => {
     it('should revoke old token and create new one', async () => {
-      const newTokenDoc = {
-        ...mockRefreshTokenDoc,
-        _id: new Types.ObjectId(),
-        tokenHash: 'new-hash',
-      };
-
       const mockOldToken = { ...mockRefreshTokenDoc, save: jest.fn().mockResolvedValue(undefined) };
 
       jest.spyOn(service, 'generateRefreshToken').mockResolvedValue({

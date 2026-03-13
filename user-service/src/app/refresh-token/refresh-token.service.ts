@@ -1,8 +1,9 @@
-import { Injectable, UnauthorizedException, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { JwtService } from '@nestjs/jwt';
+import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import type { StringValue } from 'ms';
 import * as crypto from 'crypto';
 import { RefreshToken, RefreshTokenDocument } from './schemas/refresh-token.schema';
 
@@ -25,12 +26,13 @@ export class RefreshTokenService {
     tokenHash: string;
     expiresAt: Date;
   }> {
+    const jwtSignOptions: JwtSignOptions = {
+      secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+      expiresIn: (this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d') as StringValue,
+    };
     const refreshToken = await this.jwtService.signAsync(
       { sub: userId },
-      {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-        expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d',
-      },
+      jwtSignOptions,
     );
 
     const tokenHash = this.hashToken(refreshToken);
@@ -41,7 +43,7 @@ export class RefreshTokenService {
       userId,
       tokenHash,
       expiresAt,
-      lastUsedIp: clientIp || null,
+      lastUsedIp: clientIp ?? undefined,
     });
 
     return {
@@ -116,7 +118,7 @@ export class RefreshTokenService {
 
     // Verify JWT signature
     try {
-      const payload = await this.jwtService.verifyAsync(refreshToken, {
+      await this.jwtService.verifyAsync(refreshToken, {
         secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
       });
 
@@ -175,7 +177,7 @@ export class RefreshTokenService {
    */
   async revokeRefreshToken(
     token: RefreshTokenDocument,
-    reason: string = 'Token revoked',
+    reason = 'Token revoked',
   ): Promise<RefreshTokenDocument> {
     token.revoked = true;
     token.revokedAt = new Date();
@@ -208,9 +210,6 @@ export class RefreshTokenService {
     // Link old token to new one for audit trail
     oldToken.replacedByTokenHash = newToken.tokenHash;
     await oldToken.save();
-
-    this.logger.debug(`Refresh token rotated for user ${oldToken.userId}`);
-
     return newToken;
   }
 
@@ -220,7 +219,7 @@ export class RefreshTokenService {
    */
   async getTokenRotationChain(tokenHash: string): Promise<RefreshTokenDocument[]> {
     const chain: RefreshTokenDocument[] = [];
-    let currentHash = tokenHash;
+    const currentHash = tokenHash;
 
     // Find the original token in the chain (one without replacedByTokenHash pointing to it)
     let token = await this.refreshTokenModel.findOne({ tokenHash: currentHash }).exec();
@@ -256,7 +255,7 @@ export class RefreshTokenService {
   /**
    * Revoke all refresh tokens for a user (e.g., on logout or password change)
    */
-  async revokeAllUserTokens(userId: any, reason: string = 'User logout'): Promise<number> {
+  async revokeAllUserTokens(userId: any, reason = 'User logout'): Promise<number> {
     const result = await this.refreshTokenModel.updateMany(
       { userId, revoked: false },
       {

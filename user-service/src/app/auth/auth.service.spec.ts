@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { JwtService } from '@nestjs/jwt';
 import { getModelToken } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
+import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { User, UserDocument } from '../schemas/user.schema';
@@ -11,7 +11,6 @@ import { LoginUserDto } from './dto/login-user.dto';
 describe('AuthService', () => {
   let authService: AuthService;
   let userModel: Model<UserDocument>;
-  let jwtService: JwtService;
 
   const mockUser = {
     _id: 'test-user-id',
@@ -19,10 +18,6 @@ describe('AuthService', () => {
     email: 'test@example.com',
     passwordHash: 'hashed-password',
     isActive: true,
-    failedLoginAttempts: 0,
-    lastFailedLoginAt: null,
-    lastLoginAt: null,
-    lastLoginIp: null,
     save: jest.fn(),
   };
 
@@ -60,7 +55,6 @@ describe('AuthService', () => {
 
     authService = module.get<AuthService>(AuthService);
     userModel = module.get<Model<UserDocument>>(getModelToken(User.name));
-    jwtService = module.get<JwtService>(JwtService);
   });
 
   afterEach(() => {
@@ -153,7 +147,6 @@ describe('AuthService', () => {
       });
       expect(result).toHaveProperty('accessToken');
       expect(result.message).toBe('Login successful');
-      expect(mockUser.save).toHaveBeenCalled(); // Should log successful login
     });
 
     it('should throw UnauthorizedException with specific message if user not found', async () => {
@@ -171,7 +164,6 @@ describe('AuthService', () => {
 
       // Act & Assert
       await expect(authService.login(loginDto)).rejects.toThrow('Invalid password');
-      expect(mockUser.save).toHaveBeenCalled(); // Should increment failed attempts
     });
 
     it('should throw UnauthorizedException if user is inactive', async () => {
@@ -181,54 +173,6 @@ describe('AuthService', () => {
 
       // Act & Assert
       await expect(authService.login(loginDto)).rejects.toThrow('Account is deactivated');
-    });
-
-    it('should throw UnauthorizedException if account is locked due to too many failed attempts', async () => {
-      // Arrange
-      const lockedUser = {
-        ...mockUser,
-        failedLoginAttempts: 5,
-        lastFailedLoginAt: new Date(),
-      };
-      mockUserModel.findOne.mockResolvedValue(lockedUser);
-
-      // Act & Assert
-      await expect(authService.login(loginDto)).rejects.toThrow('Account locked due to too many failed attempts');
-    });
-
-    it('should reset failed attempts after lockout period expires', async () => {
-      // Arrange
-      const fifteenMinutesAgo = new Date(Date.now() - 16 * 60 * 1000); // 16 minutes ago
-      const lockedUser = {
-        ...mockUser,
-        failedLoginAttempts: 5,
-        lastFailedLoginAt: fifteenMinutesAgo,
-      };
-      mockUserModel.findOne.mockResolvedValue(lockedUser);
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
-      mockJwtService.signAsync.mockResolvedValue('mock-token');
-
-      // Act
-      const result = await authService.login(loginDto);
-
-      // Assert
-      expect(result).toHaveProperty('accessToken');
-      expect(lockedUser.failedLoginAttempts).toBe(0); // Should be reset
-    });
-
-    it('should increment failed login attempts on invalid password', async () => {
-      // Arrange
-      const userWithAttempts = {
-        ...mockUser,
-        failedLoginAttempts: 2,
-      };
-      mockUserModel.findOne.mockResolvedValue(userWithAttempts);
-      jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
-
-      // Act & Assert
-      await expect(authService.login(loginDto)).rejects.toThrow('Invalid password');
-      expect(userWithAttempts.failedLoginAttempts).toBe(3); // Should be incremented
-      expect(userWithAttempts.lastFailedLoginAt).toBeDefined();
     });
   });
 

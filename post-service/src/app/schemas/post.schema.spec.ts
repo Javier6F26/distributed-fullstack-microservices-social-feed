@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MongooseModule, getModelToken } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
-import { Model, Document } from 'mongoose';
+import { Model } from 'mongoose';
 import { Post, PostDocument, PostSchema } from './post.schema';
 
 describe('Post Schema', () => {

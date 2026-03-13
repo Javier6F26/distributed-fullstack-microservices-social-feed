@@ -1,5 +1,5 @@
-import { Controller, Post, Body, Res, UseGuards, Req, HttpCode, HttpStatus, Inject, forwardRef, UseInterceptors, ApplyDecorators, Logger } from '@nestjs/common';
-import { Response, Request } from 'express';
+import { Controller, Post, Body, Res, UseGuards, Req, HttpCode, HttpStatus, Inject, forwardRef, Logger } from '@nestjs/common';
+import type { Response, Request } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { LoginUserDto } from './dto/login-user.dto';
@@ -30,7 +30,7 @@ export class AuthController {
     this.authService.setRefreshTokenCookie(response, result.refreshToken, true);
 
     // Remove refreshToken from response body and return plain object (let NestJS handle serialization)
-    const { refreshToken, ...responseData } = result;
+    const { refreshToken: _refreshToken, ...responseData } = result;
 
     return responseData;
   }
@@ -52,7 +52,7 @@ export class AuthController {
     this.authService.setRefreshTokenCookie(response, result.refreshToken, rememberMe);
 
     // Remove refreshToken from response body and return plain object (let NestJS handle serialization)
-    const { refreshToken, ...responseData } = result;
+    const { refreshToken: _refreshToken, ...responseData } = result;
 
     return responseData;
   }
@@ -92,6 +92,14 @@ export class AuthController {
       }
 
       // Rotate refresh token and generate new access token
+      if (!validation.token) {
+        this.logger.warn('[Refresh] Validation token is null');
+        this.authService.clearRefreshTokenCookie(response);
+        return {
+          success: false,
+          message: 'Invalid or expired refresh token',
+        };
+      }
       const userId = validation.userId._id || validation.userId;
       const newTokens = await this.refreshTokenService.rotateRefreshToken(validation.token, clientIp);
 
@@ -131,7 +139,7 @@ export class AuthController {
   async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
     try {
       // Get user ID from JWT payload (added by JwtAuthGuard)
-      const userId = request.user['sub'];
+      const userId = (request.user as Record<string, unknown>)?.sub as string;
 
       if (!userId) {
         return {

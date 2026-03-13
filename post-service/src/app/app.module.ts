@@ -5,7 +5,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PostsModule } from './posts/posts.module';
-import { DeletionModule } from './deletion/deletion.module';
 import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
 
 @Module({
@@ -19,7 +18,6 @@ import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
       inject: [ConfigService],
     }),
     PostsModule,
-    DeletionModule,
     RabbitmqModule,
   ],
   controllers: [AppController],

@@ -1,8 +1,13 @@
-import { Controller, Get, Put, Delete, Param, Query, UsePipes, ValidationPipe, Req, HttpCode, HttpStatus, Body } from '@nestjs/common';
+import { Controller, Get, Put, Delete, Param, Query, UsePipes, ValidationPipe, Req, HttpCode, HttpStatus, Body, Post as PostDecorator, Logger } from '@nestjs/common';
 import { CommentsService } from './comments.service';
+import { BulkCreateCommentsDto } from './dto/bulk-create-comments.dto';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
+@ApiTags('comments-bulk')
 @Controller('comments')
 export class CommentsController {
+  private readonly logger = new Logger(CommentsController.name);
+
   constructor(private readonly commentsService: CommentsService) {}
 
   @Get('post/:postId')
@@ -97,6 +102,38 @@ export class CommentsController {
       success: true,
       message: 'Comment deleted successfully',
       data: deletedComment,
+    };
+  }
+
+  /**
+   * POST /comments/bulk-create
+   * Bulk create comments with strict schema validation.
+   * Development/seeding endpoint - should be protected in production.
+   *
+   * @param bulkCreateCommentsDto - Array of comments to create
+   * @returns Object with created, skipped, and error counts
+   */
+  @PostDecorator('bulk-create')
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
+  @ApiOperation({ summary: 'Bulk create comments (for seeding/development)' })
+  @ApiResponse({ status: 201, description: 'Comments created successfully' })
+  async bulkCreateComments(@Body() bulkCreateCommentsDto: BulkCreateCommentsDto) {
+    this.logger.log(`📥 Bulk create request: ${bulkCreateCommentsDto.comments.length} comments`);
+
+    const result = await this.commentsService.bulkCreateComments(bulkCreateCommentsDto.comments);
+
+    this.logger.log(`✅ Bulk create complete: ${result.created.length} created, ${result.skipped.length} skipped, ${result.errors.length} errors`);
+
+    return {
+      success: true,
+      message: 'Bulk comment creation complete',
+      summary: {
+        total: bulkCreateCommentsDto.comments.length,
+        created: result.created.length,
+        skipped: result.skipped.length,
+        errors: result.errors.length,
+      },
+      details: result,
     };
   }
 }

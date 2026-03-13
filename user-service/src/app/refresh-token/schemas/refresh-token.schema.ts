@@ -6,28 +6,28 @@ export type RefreshTokenDocument = RefreshToken & Document;
 @Schema({ timestamps: true, collection: 'refresh_tokens' })
 export class RefreshToken {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true, index: true })
-  userId: Types.ObjectId;
+  userId!: Types.ObjectId;
 
   @Prop({ required: true, index: true })
-  tokenHash: string;
+  tokenHash!: string;
 
   @Prop({ required: true })
-  expiresAt: Date;
+  expiresAt!: Date;
 
   @Prop({ default: false, index: true })
-  revoked: boolean;
+  revoked!: boolean;
 
   @Prop({ default: null })
-  revokedAt: Date;
+  revokedAt!: Date;
 
   @Prop({ default: null })
-  replacedByTokenHash: string;
+  replacedByTokenHash!: string;
 
   @Prop({ default: null })
-  reason: string;
+  reason!: string;
 
   @Prop({ default: null })
-  lastUsedIp: string;
+  lastUsedIp!: string;
 }
 
 export const RefreshTokenSchema = SchemaFactory.createForClass(RefreshToken);
@@ -36,4 +36,4 @@ export const RefreshTokenSchema = SchemaFactory.createForClass(RefreshToken);
 RefreshTokenSchema.index({ expiresAt: 1, revoked: 1 });
 
 // Index for finding active tokens by user
-RefreshTokenSchema.index({ userId: 1, revoked: 0 });
+RefreshTokenSchema.index({ userId: 1, revoked: -1 });

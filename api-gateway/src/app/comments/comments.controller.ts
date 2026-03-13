@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, UseInterceptors, Inject, Param, Body, HttpStatus, HttpCode, UseGuards, Query, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, UseInterceptors, Inject, Param, Body, HttpStatus, HttpCode, UseGuards, Query, Req, NotFoundException } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
@@ -73,6 +73,43 @@ export class CommentsController {
     return { success: true, message: 'Comments cache invalidated for post ' + postId };
   }
 
+  /**
+   * Check pending write status by tempId.
+   * Returns 404 if confirmed (not in cache), 200 with pending/error status if still pending or failed.
+   */
+  @Get('pending/:tempId')
+  async checkPending(@Param('tempId') tempId: string) {
+    const value = await this.cacheManager.get(`pending:${tempId}`);
+    if (!value) {
+      throw new NotFoundException(); // 404 = confirmed (deleted from cache)
+    }
+    if (value === 'error') {
+      const errorMessage = await this.cacheManager.get(`pending:error:${tempId}`);
+      return { error: errorMessage || 'Failed to persist' };
+    }
+    return { pending: true }; // 200 = still pending
+  }
+
+  /**
+   * Confirm pending write - delete from cache after successful DB save.
+   */
+  @Post('pending/:tempId/confirm')
+  async confirm(@Param('tempId') tempId: string) {
+    await this.cacheManager.del(`pending:${tempId}`);
+    await this.cacheManager.del(`pending:error:${tempId}`);
+    return { success: true };
+  }
+
+  /**
+   * Set error status for pending write.
+   */
+  @Post('pending/:tempId/error')
+  async error(@Param('tempId') tempId: string, @Body() body: { message: string }) {
+    await this.cacheManager.set(`pending:${tempId}`, 'error', 30000);
+    await this.cacheManager.set(`pending:error:${tempId}`, body.message, 30000);
+    return { success: true };
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard)
   @Throttle({ default: { limit: 30, ttl: 60000 } })
@@ -128,6 +165,9 @@ export class CommentsController {
       };
 
       await this.rabbitmqService.publishCommentCreate(message);
+
+      // Set Redis key for pending write tracking (30 second TTL)
+      await this.cacheManager.set(`pending:${tempId}`, 'pending', 30000);
 
       return {
         success: true,

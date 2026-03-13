@@ -1,14 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
 import { JwtService } from '@nestjs/jwt';
 import { getModelToken } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { CommentsModule } from '../src/app/comments/comments.module';
 import { Comment, CommentDocument } from '../src/app/schemas/comment.schema';
-import { RabbitmqModule } from '../src/app/rabbitmq/rabbitmq.module';
 
 describe('Comments API Integration Tests (e2e)', () => {
   let app: INestApplication;

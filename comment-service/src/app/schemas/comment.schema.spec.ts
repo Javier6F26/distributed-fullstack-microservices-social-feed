@@ -1,4 +1,4 @@
-import { Comment, CommentSchema } from './comment.schema';
+import { CommentSchema } from './comment.schema';
 
 describe('CommentSchema', () => {
   it('should be defined', () => {
@@ -6,8 +6,6 @@ describe('CommentSchema', () => {
   });
 
   it('should have required fields', () => {
-    const comment = new Comment();
-    
     // Required fields should be defined in schema
     expect(CommentSchema.path('postId')).toBeDefined();
     expect(CommentSchema.path('userId')).toBeDefined();

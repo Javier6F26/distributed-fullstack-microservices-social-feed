@@ -1,14 +1,13 @@
-import { IsNotEmpty, IsString, IsObject } from 'class-validator';
-import { User } from '../../schemas/user.schema';
+import { IsNotEmpty, IsObject, IsString } from 'class-validator';
 
 export class AuthResponseDto {
   @IsNotEmpty()
   @IsString()
-  message: string;
+  message!: string;
 
   @IsNotEmpty()
   @IsObject()
-  user: {
+  user!: {
     _id: string;
     username: string;
     email: string;
@@ -16,26 +15,26 @@ export class AuthResponseDto {
 
   @IsNotEmpty()
   @IsString()
-  accessToken: string;
+  accessToken!: string;
 
   @IsString()
-  tokenType: string;
+  tokenType!: string;
 
   @IsNotEmpty()
   @IsString()
-  expiresIn: number;
+  expiresIn!: number;
 }
 
 export class RefreshTokenResponseDto {
   @IsNotEmpty()
   @IsString()
-  accessToken: string;
+  accessToken!: string;
 
   @IsNotEmpty()
   @IsString()
-  tokenType: string;
+  tokenType!: string;
 
   @IsNotEmpty()
   @IsString()
-  expiresIn: number;
+  expiresIn!: number;
 }

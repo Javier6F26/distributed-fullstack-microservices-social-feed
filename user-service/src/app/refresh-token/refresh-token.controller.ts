@@ -1,11 +1,9 @@
-import { Controller, Post, Req, Res, HttpCode, HttpStatus, Logger } from '@nestjs/common';
-import { Request, Response } from 'express';
+import { Controller, Post, Req, Res, HttpCode, HttpStatus } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { RefreshTokenService } from './refresh-token.service';
 
 @Controller('refresh-token')
 export class RefreshTokenController {
-  private readonly logger = new Logger(RefreshTokenController.name);
-
   constructor(
     private refreshTokenService: RefreshTokenService,
   ) {}
@@ -32,7 +30,7 @@ export class RefreshTokenController {
       if (validation.isValid && validation.token) {
         await this.refreshTokenService.revokeRefreshToken(validation.token, 'User logout');
       }
-    } catch (error) {
+    } catch {
       // Ignore errors - just clear the cookie
     }
 

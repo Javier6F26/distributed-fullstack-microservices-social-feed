@@ -73,7 +73,7 @@ describe('CreatePostDto', () => {
 
   it('should fail when title is missing', async () => {
     const dto = new CreatePostDto();
-    (dto as any).title = undefined;
+    (dto as unknown as { title?: undefined }).title = undefined;
     dto.body = 'This is a valid body with enough characters.';
 
     const errors = await validate(dto);
@@ -83,7 +83,7 @@ describe('CreatePostDto', () => {
   it('should fail when body is missing', async () => {
     const dto = new CreatePostDto();
     dto.title = 'Valid Title';
-    (dto as any).body = undefined;
+    (dto as unknown as { body?: undefined }).body = undefined;
 
     const errors = await validate(dto);
     expect(errors.length).toBeGreaterThan(0);

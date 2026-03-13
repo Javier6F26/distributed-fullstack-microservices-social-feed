@@ -48,32 +48,16 @@ async function seedUsers() {
       trim: true, 
       lowercase: true 
     },
-    passwordHash: { 
-      type: String, 
-      required: true, 
-      minlength: 8 
+    passwordHash: {
+      type: String,
+      required: true,
+      minlength: 8
     },
-    isActive: { 
-      type: Boolean, 
-      default: true 
-    },
-    failedLoginAttempts: { 
-      type: Number, 
-      default: 0 
-    },
-    lastFailedLoginAt: { 
-      type: Date, 
-      default: null 
-    },
-    lastLoginAt: { 
-      type: Date, 
-      default: null 
-    },
-    lastLoginIp: { 
-      type: String, 
-      default: null 
+    isActive: {
+      type: Boolean,
+      default: true
     }
-  }, { timestamps: true }));
+  }, { timestamps: false }));
 
   try {
     await mongoose.connect(USER_DB_URL);
@@ -117,22 +101,28 @@ async function seedUsers() {
 
 async function seedPosts() {
   console.log('\n📝 Seeding Posts database...');
-  
+
   const Post = mongoose.model('Post', new mongoose.Schema({
-    title: { type: String, required: true },
-    content: { type: String, required: true },
+    authorId: { type: String, required: true },
     author: { type: String, required: true },
-    authorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    title: { type: String, required: true, minlength: 5, maxlength: 100 },
+    body: { type: String, required: true, minlength: 10, maxlength: 5000 },
+    createdAt: { type: Date, required: true, default: () => new Date() },
+    updatedAt: { type: Date },
+    commentCount: { type: Number, required: true, default: 0 },
+    deleted: { type: Boolean, required: true, default: false },
+    deletedAt: { type: Date },
+    authorDeleted: { type: Boolean },
+    authorDeletedAt: { type: Date },
     recentComments: [{
-      _id: { type: mongoose.Schema.Types.ObjectId, required: true },
-      text: { type: String, required: true },
-      author: { type: String, required: true },
-      createdAt: { type: Date, default: Date.now }
-    }],
-    likes: { type: Number, default: 0 },
-    commentsCount: { type: Number, default: 0 },
-    tags: [{ type: String }]
-  }, { timestamps: true }));
+      _id: { type: mongoose.Schema.Types.ObjectId },
+      postId: { type: String, required: true },
+      name: { type: String, required: true },
+      email: { type: String, required: true },
+      body: { type: String, required: true },
+      createdAt: { type: Date, required: true }
+    }]
+  }, { timestamps: true, collection: 'posts' }));
 
   try {
     await mongoose.connect(POST_DB_URL);
@@ -140,24 +130,27 @@ async function seedPosts() {
     const posts = [
       {
         title: 'Welcome to Social Feed!',
-        content: 'This is the first post on our new social feed platform. Feel free to explore and connect with others!',
+        body: 'This is the first post on our new social feed platform. Feel free to explore and connect with others!',
         author: 'javier',
         authorId: '670000000000000000000001',
-        tags: ['welcome', 'introduction']
+        commentCount: 0,
+        deleted: false
       },
       {
         title: 'Getting Started with Angular',
-        content: 'Angular is a powerful framework for building web applications. Here are some tips to get started...',
+        body: 'Angular is a powerful framework for building web applications. Here are some tips to get started...',
         author: 'javier',
         authorId: '670000000000000000000001',
-        tags: ['angular', 'typescript', 'tutorial']
+        commentCount: 0,
+        deleted: false
       },
       {
         title: 'NestJS Best Practices',
-        content: 'When building backend services with NestJS, following best practices ensures maintainability and scalability...',
+        body: 'When building backend services with NestJS, following best practices ensures maintainability and scalability...',
         author: 'testuser',
         authorId: '670000000000000000000002',
-        tags: ['nestjs', 'backend', 'nodejs']
+        commentCount: 0,
+        deleted: false
       }
     ];
 
@@ -176,29 +169,32 @@ async function seedPosts() {
 
 async function seedComments() {
   console.log('\n💬 Seeding Comments database...');
-  
+
   const Comment = mongoose.model('Comment', new mongoose.Schema({
-    text: { type: String, required: true },
-    author: { type: String, required: true },
-    authorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    postId: { type: mongoose.Schema.Types.ObjectId, required: true },
-    likes: { type: Number, default: 0 },
-    isEdited: { type: Boolean, default: false }
-  }, { timestamps: true }));
+    postId: { type: mongoose.Schema.Types.ObjectId, required: true, ref: 'Post' },
+    authorId: { type: String, required: true },
+    name: { type: String, required: true },
+    email: { type: String, required: true },
+    body: { type: String, required: true, minlength: 1, maxlength: 1000 },
+    createdAt: { type: Date, required: true, default: () => new Date() },
+    updatedAt: { type: Date }
+  }, { timestamps: true, collection: 'comments' }));
 
   try {
     await mongoose.connect(COMMENT_DB_URL);
     
     const comments = [
       {
-        text: 'Great introduction! Looking forward to using this platform.',
-        author: 'testuser',
+        name: 'testuser',
+        email: 'test@example.com',
+        body: 'Great introduction! Looking forward to using this platform.',
         authorId: '670000000000000000000002',
         postId: '670000000000000000000001'
       },
       {
-        text: 'Thanks for sharing! Angular is indeed a great framework.',
-        author: 'demo',
+        name: 'demo',
+        email: 'demo@example.com',
+        body: 'Thanks for sharing! Angular is indeed a great framework.',
         authorId: '670000000000000000000003',
         postId: '670000000000000000000002'
       }

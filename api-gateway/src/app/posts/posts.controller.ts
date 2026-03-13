@@ -191,6 +191,51 @@ export class PostsController {
   }
 
   /**
+   * Check pending write status by tempId.
+   * Returns confirmed: true with postId if not in cache (deleted after DB save),
+   * pending: true if still pending, or error: message if failed.
+   */
+  @Get('pending/:tempId')
+  async checkPending(@Param('tempId') tempId: string) {
+    const value = await this.cacheManager.get(`pending:${tempId}`);
+    if (!value) {
+      // Not found = confirmed (deleted from cache after DB save)
+      // Check if we have the real postId stored
+      const postId = await this.cacheManager.get(`post:tempId:${tempId}`);
+      if (postId) {
+        return { confirmed: true, postId };
+      }
+      return { confirmed: true };
+    }
+    if (value === 'error') {
+      // Get error message from separate key
+      const errorMessage = await this.cacheManager.get(`pending:error:${tempId}`);
+      return { error: errorMessage || 'Failed to persist' };
+    }
+    return { pending: true }; // Still pending
+  }
+
+  /**
+   * Confirm pending write - delete from cache after successful DB save.
+   */
+  @Post('pending/:tempId/confirm')
+  async confirm(@Param('tempId') tempId: string) {
+    await this.cacheManager.del(`pending:${tempId}`);
+    await this.cacheManager.del(`pending:error:${tempId}`);
+    return { success: true };
+  }
+
+  /**
+   * Set error status for pending write.
+   */
+  @Post('pending/:tempId/error')
+  async error(@Param('tempId') tempId: string, @Body() body: { message: string }) {
+    await this.cacheManager.set(`pending:${tempId}`, 'error', 30000);
+    await this.cacheManager.set(`pending:error:${tempId}`, body.message, 30000);
+    return { success: true };
+  }
+
+  /**
    * Create a new post via RabbitMQ queue.
    * Validates DTO, enqueues message, returns optimistic response.
    *
@@ -243,7 +288,6 @@ export class PostsController {
       };
     }
 
-    console.log('✅ Validation passed!');
 
     try {
       // Extract userId from JWT (guaranteed by JwtStrategy.validate())
@@ -273,12 +317,13 @@ export class PostsController {
         createdAt: new Date().toISOString(),
         tempId,
       };
-      console.log('Created message:', JSON.stringify(message, null, 2));
-
       // Publish to RabbitMQ queue
       console.log('Publishing to RabbitMQ...');
       this.rabbitmqService.publishPostCreate(message);
       console.log('✅ Published to RabbitMQ successfully!');
+
+      // Set Redis key for pending write tracking (30 second TTL)
+      await this.cacheManager.set(`pending:${tempId}`, 'pending', 30000);
 
       // Return optimistic response for immediate UI update
 

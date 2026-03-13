@@ -5,13 +5,10 @@ import { ThrottlerModule, seconds } from '@nestjs/throttler';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { SeedingController } from './seeding/seeding.controller';
-import { SeedingService } from './seeding/seeding.service';
 import { User, UserSchema } from './schemas/user.schema';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { RefreshTokenModule } from './refresh-token/refresh-token.module';
-import { DeletionModule } from './deletion/deletion.module';
 
 @Module({
   imports: [
@@ -35,9 +32,8 @@ import { DeletionModule } from './deletion/deletion.module';
     AuthModule,
     UsersModule,
     RefreshTokenModule,
-    DeletionModule,
   ],
-  controllers: [AppController, SeedingController],
-  providers: [AppService, SeedingService],
+  controllers: [AppController],
+  providers: [AppService],
 })
 export class AppModule {}

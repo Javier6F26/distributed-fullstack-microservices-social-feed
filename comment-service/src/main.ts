@@ -68,7 +68,11 @@ function setupDocumentation(app: INestApplication): void {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
+  // Increase body size limit for bulk operations (default is 100kb)
+  app.useBodyParser('json', { limit: '10mb' });
+  app.useBodyParser('urlencoded', { limit: '10mb', extended: true });
+
   // HTTP server for REST API
   const port = process.env.PORT || 3003;
   await app.listen(port);

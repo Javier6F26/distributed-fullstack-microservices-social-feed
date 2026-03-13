@@ -1,10 +1,15 @@
-import { Controller, Get, Query, Put, Delete, Param, Body, Req, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Query, Put, Delete, Param, Body, Req, HttpCode, HttpStatus, Post as PostDecorator, UsePipes, ValidationPipe, Logger } from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { SearchPostsDto } from './dto/search-posts.dto';
 import { FilterPostsDto } from './dto/filter-posts.dto';
+import { BulkCreatePostsDto } from './dto/bulk-create-posts.dto';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
+@ApiTags('posts-bulk')
 @Controller('posts')
 export class PostsController {
+  private readonly logger = new Logger(PostsController.name);
+
   constructor(private readonly postsService: PostsService) {}
 
   @Get()
@@ -126,6 +131,38 @@ export class PostsController {
       success: true,
       message: 'Post deleted successfully',
       data: deletedPost,
+    };
+  }
+
+  /**
+   * POST /posts/bulk-create
+   * Bulk create posts with strict schema validation.
+   * Development/seeding endpoint - should be protected in production.
+   *
+   * @param bulkCreatePostsDto - Array of posts to create
+   * @returns Object with created, skipped, and error counts
+   */
+  @PostDecorator('bulk-create')
+  @UsePipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
+  @ApiOperation({ summary: 'Bulk create posts (for seeding/development)' })
+  @ApiResponse({ status: 201, description: 'Posts created successfully' })
+  async bulkCreatePosts(@Body() bulkCreatePostsDto: BulkCreatePostsDto) {
+    this.logger.log(`📥 Bulk create request: ${bulkCreatePostsDto.posts.length} posts`);
+
+    const result = await this.postsService.bulkCreatePosts(bulkCreatePostsDto.posts);
+
+    this.logger.log(`✅ Bulk create complete: ${result.created.length} created, ${result.skipped.length} skipped, ${result.errors.length} errors`);
+
+    return {
+      success: true,
+      message: 'Bulk post creation complete',
+      summary: {
+        total: bulkCreatePostsDto.posts.length,
+        created: result.created.length,
+        skipped: result.skipped.length,
+        errors: result.errors.length,
+      },
+      details: result,
     };
   }
 }

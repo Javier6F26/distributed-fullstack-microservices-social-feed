@@ -9,7 +9,7 @@ export class LoginUserDto {
   })
   @IsNotEmpty()
   @IsString()
-  identifier: string; // Can be email or username
+  identifier!: string; // Can be email or username
 
   @ApiProperty({
     description: 'Password for login',
@@ -18,7 +18,7 @@ export class LoginUserDto {
   })
   @IsNotEmpty()
   @IsString()
-  password: string;
+  password!: string;
 
   @ApiPropertyOptional({
     description: 'Whether to remember the user session (7 days) or use session-only cookie',

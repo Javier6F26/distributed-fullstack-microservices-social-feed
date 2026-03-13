@@ -29,6 +29,11 @@ export class PostsService {
    *
    * @param message - PostCreateMessage from queue
    * @returns Created post document
+   * 
+   * NOTE: tempId is NEVER stored in the database. It is only used for:
+   * - Optimistic UI correlation on the frontend
+   * - RabbitMQ event payload for API Gateway pending write confirmation
+   * - Redis cache key (30 second TTL) for polling-based confirmation
    */
   async createPostFromQueue(message: PostCreateMessage): Promise<PostDocument> {
     const post = new this.postModel({
@@ -42,7 +47,31 @@ export class PostsService {
       recentComments: [],
     });
 
-    return await post.save();
+    try {
+      const savedPost = await post.save();
+      this.logger.log(`✅ Created post ${savedPost._id}`);
+
+      // Emit post.created event with tempId for API Gateway to confirm
+      await this.rabbitmqService.emitPostCreated({
+        postId: savedPost._id.toString(),
+        userId: message.userId,
+        tempId: message.tempId,
+      });
+
+      return savedPost;
+    } catch (error: any) {
+      this.logger.error(`❌ Failed to create post: ${error.message}`);
+
+      // Emit post.create.failed event with tempId for API Gateway to mark as error
+      if (message.tempId) {
+        await this.rabbitmqService.emitPostCreateFailed({
+          tempId: message.tempId,
+          error: error.message || 'Failed to save post',
+        });
+      }
+
+      throw error;
+    }
   }
 
   /**
@@ -62,11 +91,12 @@ export class PostsService {
     // Update post with the recentComments array from event
     // Note: We do NOT filter by deleted: false here to allow comment updates on soft-deleted posts
     // This ensures data consistency even if the post is soft-deleted (it won't appear in feed anyway)
+    // IMPORTANT: timestamps: false prevents updatedAt from being modified by system interactions
     const result = await this.postModel
       .findOneAndUpdate(
         { _id: postId },
         { $set: { recentComments } },
-        { returnDocument: 'after' },
+        { returnDocument: 'after', timestamps: false },
       )
       .exec();
 
@@ -171,7 +201,7 @@ export class PostsService {
       .exec();
   }
 
-  async findAll(limit: number = 20, cursor?: string): Promise<{ posts: Post[]; nextCursor: string | null }> {
+  async findAll(limit = 20, cursor?: string): Promise<{ posts: Post[]; nextCursor: string | null }> {
     const query: any = { deleted: false };
 
     // Validate cursor if provided
@@ -196,7 +226,7 @@ export class PostsService {
     return { posts, nextCursor };
   }
 
-  async search(searchDto: SearchPostsDto, limit: number = 20, cursor?: string): Promise<{ posts: Post[]; nextCursor: string | null }> {
+  async search(searchDto: SearchPostsDto, limit = 20, cursor?: string): Promise<{ posts: Post[]; nextCursor: string | null }> {
     const query: any = { deleted: false };
 
     // Validate cursor if provided
@@ -231,7 +261,7 @@ export class PostsService {
     return { posts, nextCursor };
   }
 
-  async filter(filterDto: FilterPostsDto, limit: number = 20, cursor?: string): Promise<{ posts: Post[]; nextCursor: string | null }> {
+  async filter(filterDto: FilterPostsDto, limit = 20, cursor?: string): Promise<{ posts: Post[]; nextCursor: string | null }> {
     const query: any = { deleted: false };
 
     // Validate cursor if provided
@@ -278,7 +308,7 @@ export class PostsService {
   async searchAndFilter(
     searchDto: SearchPostsDto,
     filterDto: FilterPostsDto,
-    limit: number = 20,
+    limit = 20,
     cursor?: string,
   ): Promise<{ posts: Post[]; nextCursor: string | null }> {
     const query: any = { deleted: false };
@@ -330,5 +360,79 @@ export class PostsService {
     }
 
     return { posts, nextCursor };
+  }
+
+  /**
+   * Bulk create posts with strict schema validation.
+   * Handles duplicates and invalid references gracefully.
+   *
+   * @param posts - Array of post data to create
+   * @returns Object with created posts and skipped/failed entries
+   */
+  async bulkCreatePosts(posts: Array<{ authorId: string; author: string; title: string; body: string }>) {
+    const results = {
+      created: [] as Array<{ _id: string; authorId: string; title: string }>,
+      skipped: [] as Array<{ authorId: string; title: string; reason: string }>,
+      errors: [] as Array<{ authorId: string; title: string; error: string }>,
+    };
+
+    for (const postData of posts) {
+      try {
+        // Validate authorId format
+        if (!this.isValidObjectId(postData.authorId)) {
+          results.skipped.push({
+            authorId: postData.authorId,
+            title: postData.title,
+            reason: 'Invalid authorId format',
+          });
+          continue;
+        }
+
+        // Check for duplicate post (same author + title)
+        const existingPost = await this.postModel.findOne({
+          authorId: postData.authorId,
+          title: { $regex: new RegExp(`^${postData.title}$`, 'i') },
+        }).exec();
+
+        if (existingPost) {
+          results.skipped.push({
+            authorId: postData.authorId,
+            title: postData.title,
+            reason: 'Post with same title already exists for this author',
+          });
+          continue;
+        }
+
+        // Create post
+        const post = new this.postModel({
+          authorId: postData.authorId,
+          author: postData.author,
+          title: postData.title,
+          body: postData.body,
+          commentCount: 0,
+          deleted: false,
+          recentComments: [],
+        });
+
+        const savedPost = await post.save();
+
+        results.created.push({
+          _id: savedPost._id.toString(),
+          authorId: savedPost.authorId,
+          title: savedPost.title,
+        });
+
+        this.logger.log(`✅ Created post: ${savedPost.title} by ${savedPost.author}`);
+      } catch (error: any) {
+        results.errors.push({
+          authorId: postData.authorId,
+          title: postData.title,
+          error: error.message || 'Unknown error',
+        });
+        this.logger.error(`❌ Failed to create post "${postData.title}": ${error.message}`);
+      }
+    }
+
+    return results;
   }
 }

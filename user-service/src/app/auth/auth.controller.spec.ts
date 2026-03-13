@@ -1,10 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
-import { getModelToken } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { User, UserDocument } from '../schemas/user.schema';
+import { RefreshTokenService } from '../refresh-token/refresh-token.service';
 
 describe('AuthController', () => {
   let authController: AuthController;
@@ -24,6 +22,8 @@ describe('AuthController', () => {
     verifyAsync: jest.fn(),
   };
 
+  const mockRefreshTokenService = {};
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [AuthController],
@@ -35,6 +35,10 @@ describe('AuthController', () => {
         {
           provide: JwtService,
           useValue: mockJwtService,
+        },
+        {
+          provide: RefreshTokenService,
+          useValue: mockRefreshTokenService,
         },
       ],
     }).compile();

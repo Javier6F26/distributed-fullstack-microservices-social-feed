@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Res, Req, UseGuards, Delete } from '@nestjs/common';
+import { Controller, Post, Body, Res, Req, UseGuards } from '@nestjs/common';
 import type { Response, Request } from 'express';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
@@ -24,23 +24,18 @@ export class AuthController {
    */
   @Post('register')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
-  async register(@Body() registerUserDto: any, @Res() response: Response) {
-    try {
-      const userServiceUrl = this.getUserServiceUrl();
-      const result = await firstValueFrom(
-        this.httpService.post(`${userServiceUrl}/auth/register`, registerUserDto, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }),
-      );
+  async register(@Body() registerUserDto: Record<string, unknown>, @Res() response: Response) {
+    const userServiceUrl = this.getUserServiceUrl();
+    const result = await firstValueFrom(
+      this.httpService.post(`${userServiceUrl}/auth/register`, registerUserDto, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }),
+    );
 
-      // Forward the response from user-service
-      return response.status(result.status).json(result.data);
-    } catch (error: any) {
-      // Let the global filter handle the error
-      throw error;
-    }
+    // Forward the response from user-service
+    return response.status(result.status).json(result.data);
   }
 
   /**
@@ -50,43 +45,38 @@ export class AuthController {
    */
   @Post('login')
   @Throttle({ default: { limit: 10, ttl: 60000 } })
-  async login(@Body() loginUserDto: any, @Res() response: Response) {
-    try {
-      const userServiceUrl = this.getUserServiceUrl();
-      const result = await firstValueFrom(
-        this.httpService.post(`${userServiceUrl}/auth/login`, loginUserDto, {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }),
-      );
+  async login(@Body() loginUserDto: Record<string, unknown>, @Res() response: Response) {
+    const userServiceUrl = this.getUserServiceUrl();
+    const result = await firstValueFrom(
+      this.httpService.post(`${userServiceUrl}/auth/login`, loginUserDto, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }),
+    );
 
-      // Forward cookies from user-service response
-      const cookies = result.headers['set-cookie'];
-      let refreshToken: string | undefined;
-      
-      if (cookies) {
-        cookies.forEach((cookie: string) => {
-          response.header('Set-Cookie', cookie);
-          // Extract refreshToken from cookie
-          const match = cookie.match(/refreshToken=([^;]+)/);
-          if (match && match[1]) {
-            refreshToken = match[1];
-          }
-        });
-      }
+    // Forward cookies from user-service response
+    const cookies = result.headers['set-cookie'];
+    let refreshToken: string | undefined;
 
-      // Add refreshToken to response body for frontend to store
-      const responseData = result.data;
-      if (refreshToken) {
-        responseData.refreshToken = refreshToken;
-      }
-
-      return response.status(result.status).json(responseData);
-    } catch (error: any) {
-      // Let the global filter handle the error
-      throw error;
+    if (cookies) {
+      cookies.forEach((cookie: string) => {
+        response.header('Set-Cookie', cookie);
+        // Extract refreshToken from cookie
+        const match = cookie.match(/refreshToken=([^;]+)/);
+        if (match && match[1]) {
+          refreshToken = match[1];
+        }
+      });
     }
+
+    // Add refreshToken to response body for frontend to store
+    const responseData = result.data;
+    if (refreshToken) {
+      responseData.refreshToken = refreshToken;
+    }
+
+    return response.status(result.status).json(responseData);
   }
 
   /**
@@ -96,58 +86,53 @@ export class AuthController {
    */
   @Post('refresh')
   @Throttle({ default: { limit: 30, ttl: 60 } })
-  async refresh(@Req() request: Request, @Res() response: Response, @Body() body: any) {
-    try {
-      const userServiceUrl = this.getUserServiceUrl();
-      // Try to get refreshToken from body first (for Postman), then from cookies
-      const refreshToken = body?.refreshToken || request.cookies?.refreshToken;
+  async refresh(@Req() request: Request, @Res() response: Response, @Body() body: Record<string, unknown>) {
+    const userServiceUrl = this.getUserServiceUrl();
+    // Try to get refreshToken from body first (for Postman), then from cookies
+    const refreshToken = (body?.refreshToken as string | undefined) || request.cookies?.refreshToken;
 
-      if (!refreshToken) {
-        return response.status(401).json({
-          success: false,
-          message: 'Refresh token not found',
-        });
-      }
-
-      // Forward refreshToken as cookie to user-service
-      const result = await firstValueFrom(
-        this.httpService.post(`${userServiceUrl}/auth/refresh`, {}, {
-          headers: {
-            'Content-Type': 'application/json',
-            Cookie: `refreshToken=${refreshToken}`,
-          },
-          // Important: Do not set withCredentials here as we're the server
-        }),
-      );
-
-      // CRITICAL: Forward cookies from user-service response to frontend
-      // This ensures Set-Cookie headers are properly passed through
-      const cookies = result.headers['set-cookie'];
-      let newRefreshToken: string | undefined;
-      
-      if (cookies && Array.isArray(cookies)) {
-        cookies.forEach((cookie: string) => {
-          // Forward the cookie exactly as received from user-service
-          response.append('Set-Cookie', cookie);
-          // Extract refreshToken from cookie
-          const match = cookie.match(/refreshToken=([^;]+)/);
-          if (match && match[1]) {
-            newRefreshToken = match[1];
-          }
-        });
-      }
-
-      // Add refreshToken to response body for frontend to store
-      const responseData = result.data;
-      if (newRefreshToken) {
-        responseData.refreshToken = newRefreshToken;
-      }
-
-      return response.status(result.status).json(responseData);
-    } catch (error: any) {
-      // Let the global filter handle the error
-      throw error;
+    if (!refreshToken) {
+      return response.status(401).json({
+        success: false,
+        message: 'Refresh token not found',
+      });
     }
+
+    // Forward refreshToken as cookie to user-service
+    const result = await firstValueFrom(
+      this.httpService.post(`${userServiceUrl}/auth/refresh`, {}, {
+        headers: {
+          'Content-Type': 'application/json',
+          Cookie: `refreshToken=${refreshToken}`,
+        },
+        // Important: Do not set withCredentials here as we're the server
+      }),
+    );
+
+    // CRITICAL: Forward cookies from user-service response to frontend
+    // This ensures Set-Cookie headers are properly passed through
+    const cookies = result.headers['set-cookie'];
+    let newRefreshToken: string | undefined;
+
+    if (cookies && Array.isArray(cookies)) {
+      cookies.forEach((cookie: string) => {
+        // Forward the cookie exactly as received from user-service
+        response.append('Set-Cookie', cookie);
+        // Extract refreshToken from cookie
+        const match = cookie.match(/refreshToken=([^;]+)/);
+        if (match && match[1]) {
+          newRefreshToken = match[1];
+        }
+      });
+    }
+
+    // Add refreshToken to response body for frontend to store
+    const responseData = result.data;
+    if (newRefreshToken) {
+      responseData.refreshToken = newRefreshToken;
+    }
+
+    return response.status(result.status).json(responseData);
   }
 
   /**
@@ -158,72 +143,28 @@ export class AuthController {
   @Post('logout')
   @Throttle({ default: { limit: 10, ttl: 60 } })
   async logout(@Req() request: Request, @Res() response: Response) {
-    try {
-      const userServiceUrl = this.getUserServiceUrl();
-      const refreshToken = request.cookies?.refreshToken;
-      const authHeader = request.headers.authorization;
+    const userServiceUrl = this.getUserServiceUrl();
+    const refreshToken = request.cookies?.refreshToken;
+    const authHeader = request.headers.authorization;
 
-      const result = await firstValueFrom(
-        this.httpService.post(`${userServiceUrl}/auth/logout`, {}, {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: authHeader,
-            Cookie: refreshToken ? `refreshToken=${refreshToken}` : '',
-          },
-        }),
-      );
+    const result = await firstValueFrom(
+      this.httpService.post(`${userServiceUrl}/auth/logout`, {}, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: authHeader,
+          Cookie: refreshToken ? `refreshToken=${refreshToken}` : '',
+        },
+      }),
+    );
 
-      // Clear cookie with same attributes as set
-      response.clearCookie('refreshToken', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        path: '/',
-      });
+    // Clear cookie with same attributes as set
+    response.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      path: '/',
+    });
 
-      return response.status(result.status).json(result.data);
-    } catch (error: any) {
-      // Let the global filter handle the error
-      throw error;
-    }
-  }
-
-  /**
-   * DELETE /account
-   * Proxy account deletion request to user-service
-   * Rate limit: 5 requests per day (prevent abuse)
-   */
-  @Delete('account')
-  @Throttle({ default: { limit: 5, ttl: 86400 } })
-  @UseGuards(JwtAuthGuard)
-  async deleteAccount(@Req() request: Request, @Res() response: Response) {
-    try {
-      const userServiceUrl = this.getUserServiceUrl();
-      const refreshToken = request.cookies?.refreshToken;
-      const authHeader = request.headers.authorization;
-
-      const result = await firstValueFrom(
-        this.httpService.delete(`${userServiceUrl}/deletion/request`, {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: authHeader,
-            Cookie: refreshToken ? `refreshToken=${refreshToken}` : '',
-          },
-        }),
-      );
-
-      // Clear cookie on successful deletion request
-      response.clearCookie('refreshToken', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        path: '/',
-      });
-
-      return response.status(result.status).json(result.data);
-    } catch (error: any) {
-      // Let the global filter handle the error
-      throw error;
-    }
+    return response.status(result.status).json(result.data);
   }
 }

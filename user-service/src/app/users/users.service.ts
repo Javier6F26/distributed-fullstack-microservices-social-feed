@@ -1,10 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from '../schemas/user.schema';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
   /**
@@ -33,16 +36,16 @@ export class UsersService {
    */
   async getProfile(userId: string) {
     const user = await this.userModel.findById(userId).select('-passwordHash').exec();
-    
+
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
     return {
-      _id: user._id,
+      _id: user._id.toString(),
       username: user.username,
       email: user.email,
-      createdAt: user.createdAt,
+      createdAt: (user as UserDocument & { createdAt?: Date }).createdAt,
     };
   }
 
@@ -64,15 +67,65 @@ export class UsersService {
   }
 
   /**
-   * Delete user account
+   * Bulk create users with strict schema validation.
+   * Hashes passwords and handles duplicates gracefully.
+   *
+   * @param users - Array of user data to create
+   * @returns Object with created users and skipped duplicates
    */
-  async deleteAccount(userId: string) {
-    const user = await this.userModel.findByIdAndDelete(userId).exec();
-    
-    if (!user) {
-      throw new NotFoundException('User not found');
+  async bulkCreateUsers(users: Array<{ username: string; email: string; password: string }>) {
+    const results = {
+      created: [] as Array<{ _id: string; username: string; email: string }>,
+      skipped: [] as Array<{ username: string; email: string; reason: string }>,
+      errors: [] as Array<{ username: string; email: string; error: string }>,
+    };
+
+    for (const userData of users) {
+      try {
+        // Check for existing user
+        const existingUser = await this.userModel.findOne({
+          $or: [{ email: userData.email }, { username: userData.username }],
+        }).exec();
+
+        if (existingUser) {
+          results.skipped.push({
+            username: userData.username,
+            email: userData.email,
+            reason: existingUser.email === userData.email ? 'Email already exists' : 'Username already exists',
+          });
+          continue;
+        }
+
+        // Hash password
+        const saltRounds = 10;
+        const passwordHash = await bcrypt.hash(userData.password, saltRounds);
+
+        // Create user
+        const user = new this.userModel({
+          username: userData.username,
+          email: userData.email,
+          passwordHash,
+        });
+
+        const savedUser = await user.save();
+
+        results.created.push({
+          _id: savedUser._id.toString(),
+          username: savedUser.username,
+          email: savedUser.email,
+        });
+
+        this.logger.log(`✅ Created user: ${savedUser.username} (${savedUser.email})`);
+      } catch (error: any) {
+        results.errors.push({
+          username: userData.username,
+          email: userData.email,
+          error: error.message || 'Unknown error',
+        });
+        this.logger.error(`❌ Failed to create user ${userData.username}: ${error.message}`);
+      }
     }
 
-    return { message: 'Account deleted successfully' };
+    return results;
   }
 }

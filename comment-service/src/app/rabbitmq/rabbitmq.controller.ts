@@ -1,6 +1,5 @@
 import { Controller } from '@nestjs/common';
-import { MessagePattern, Ctx, Payload } from '@nestjs/microservices';
-import { RmqContext } from '@nestjs/microservices';
+import { MessagePattern, Payload } from '@nestjs/microservices';
 import { CommentsService } from '../comments/comments.service';
 import { CommentCreateMessage } from '@prueba-tecnica-fullstack-angular-nest-js-mongo-db/shared-types';
 import { COMMENT_CREATE_QUEUE } from './rabbitmq.constants';

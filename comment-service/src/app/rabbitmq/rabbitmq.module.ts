@@ -1,6 +1,6 @@
 import { Module, Global } from '@nestjs/common';
 import { ClientsModule, Transport } from '@nestjs/microservices';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
 import { RabbitmqService } from './rabbitmq.service';
 import { RabbitmqController } from './rabbitmq.controller';
