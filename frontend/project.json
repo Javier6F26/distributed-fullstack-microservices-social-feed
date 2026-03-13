@@ -68,7 +68,8 @@
       "configurations": {
         "development": {
           "buildTarget": "frontend:build:development",
-          "proxyConfig": "frontend/proxy.conf.json"
+          "proxyConfig": "frontend/proxy.conf.json",
+          "allowedHosts": ["feedflow.cosecha93.net", "localhost", "127.0.0.1"]
         },
         "production": {
           "buildTarget": "frontend:build:production"
