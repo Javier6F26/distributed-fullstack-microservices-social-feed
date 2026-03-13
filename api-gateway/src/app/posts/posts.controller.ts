@@ -54,7 +54,6 @@ export class PostsController {
    * Development/seeding endpoint - should be protected in production.
    */
   @Post('bulk')
-  @UseGuards(JwtAuthGuard)
   @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute for bulk operations
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Bulk create posts (for seeding/development)' })
@@ -74,8 +73,7 @@ export class PostsController {
   })
   @ApiResponse({ status: 201, description: 'Posts created successfully' })
   @ApiResponse({ status: 400, description: 'Validation failed' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async bulkCreatePosts(@Body() posts: any[], @Req() req: any) {
+  async bulkCreatePosts(@Body() posts: any[]) {
     const postServiceUrl = this.configService.get<string>('POST_SERVICE_URL') || 'http://localhost:3002';
 
     this.logger.log(`📥 Bulk create posts request: ${posts.length} posts`);
@@ -84,7 +82,7 @@ export class PostsController {
       const response = await firstValueFrom(
         this.httpService.post(`${postServiceUrl}/posts/bulk`, posts, {
           headers: {
-            Authorization: req.headers.authorization,
+            'Content-Type': 'application/json',
           },
         }),
       );

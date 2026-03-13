@@ -124,7 +124,7 @@ async function seedUsers() {
   console.log('\n📝 Seeding Users...');
   const users = generateUniqueUsers();
   const suffix = users[0].username.split('_').pop() || String(Date.now());
-  const response = await axios.post(`${API_GATEWAY_URL}/users/bulk`, { users }, { timeout: 30000 });
+  const response = await axios.post(`${API_GATEWAY_URL}/api/v1/users/bulk`, { users }, { timeout: 30000 });
   const result = response.data;
   console.log(`   Created: ${result.summary.created}, Skipped: ${result.summary.skipped}, Errors: ${result.summary.errors}`);
 
@@ -136,7 +136,7 @@ async function seedUsers() {
 async function seedPosts(userIds: Record<string, string>, suffix: string) {
   console.log('\n📝 Seeding Posts...');
   const posts = generatePosts(userIds, suffix);
-  const response = await axios.post(`${API_GATEWAY_URL}/posts/bulk`, { posts }, { timeout: 30000 });
+  const response = await axios.post(`${API_GATEWAY_URL}/api/v1/posts/bulk`, { posts }, { timeout: 30000 });
   const result = response.data;
   console.log(`   Created: ${result.summary.created}, Skipped: ${result.summary.skipped}, Errors: ${result.summary.errors}`);
 
@@ -148,7 +148,7 @@ async function seedPosts(userIds: Record<string, string>, suffix: string) {
 async function seedComments(userIds: Record<string, string>, postIds: Record<string, string>) {
   console.log('\n📝 Seeding Comments...');
   const comments = generateComments(userIds, postIds);
-  const response = await axios.post(`${API_GATEWAY_URL}/comments/bulk`, { comments }, { timeout: 30000 });
+  const response = await axios.post(`${API_GATEWAY_URL}/api/v1/comments/bulk`, { comments }, { timeout: 30000 });
   const result = response.data;
   console.log(`   Created: ${result.summary.created}, Skipped: ${result.summary.skipped}, Errors: ${result.summary.errors}`);
   return result;

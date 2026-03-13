@@ -1,4 +1,4 @@
-import { Controller, Get, Post, UseGuards, Req, Body, Logger, UseInterceptors, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Logger, HttpStatus, Req, UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
@@ -26,7 +26,6 @@ export class UsersController {
    * Development/seeding endpoint - should be protected in production.
    */
   @Post('bulk')
-  @UseGuards(JwtAuthGuard)
   @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute for bulk operations
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Bulk create users (for seeding/development)' })
@@ -45,8 +44,7 @@ export class UsersController {
   })
   @ApiResponse({ status: 201, description: 'Users created successfully' })
   @ApiResponse({ status: 400, description: 'Validation failed' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async bulkCreateUsers(@Body() users: any[], @Req() req: any) {
+  async bulkCreateUsers(@Body() users: any[]) {
     const userServiceUrl = this.getUserServiceUrl();
 
     this.logger.log(`📥 Bulk create users request: ${users.length} users`);
@@ -55,7 +53,7 @@ export class UsersController {
       const response = await firstValueFrom(
         this.httpService.post(`${userServiceUrl}/users/bulk`, users, {
           headers: {
-            Authorization: req.headers.authorization,
+            'Content-Type': 'application/json',
           },
         }),
       );

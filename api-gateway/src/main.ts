@@ -27,6 +27,10 @@ async function bootstrap() {
   const cookieParser = require('cookie-parser');
   app.use(cookieParser());
 
+  // Increase body size limit for bulk operations (default is 100kb)
+  app.useBodyParser('json', { limit: '50mb' });
+  app.useBodyParser('urlencoded', { limit: '50mb', extended: true });
+
   app.useGlobalFilters(new HttpErrorFilter());
 
   setupDocumentation(app);

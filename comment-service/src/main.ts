@@ -70,8 +70,8 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Increase body size limit for bulk operations (default is 100kb)
-  app.useBodyParser('json', { limit: '10mb' });
-  app.useBodyParser('urlencoded', { limit: '10mb', extended: true });
+  app.useBodyParser('json', { limit: '50mb' });
+  app.useBodyParser('urlencoded', { limit: '50mb', extended: true });
 
   // HTTP server for REST API
   const port = process.env.COMMENT_SERVICE_PORT || process.env.PORT || 3003;

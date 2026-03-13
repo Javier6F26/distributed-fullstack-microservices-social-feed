@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, UseInterceptors, Inject, Param, Body, HttpStatus, HttpCode, UseGuards, Query, Req, NotFoundException, Logger } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, UseInterceptors, Inject, Param, Body, HttpStatus, HttpCode, Query, NotFoundException, Logger, UseGuards, Req } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
@@ -40,7 +40,6 @@ export class CommentsController {
    * Development/seeding endpoint - should be protected in production.
    */
   @Post('bulk')
-  @UseGuards(JwtAuthGuard)
   @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute for bulk operations
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Bulk create comments (for seeding/development)' })
@@ -61,8 +60,7 @@ export class CommentsController {
   })
   @ApiResponse({ status: 201, description: 'Comments created successfully' })
   @ApiResponse({ status: 400, description: 'Validation failed' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async bulkCreateComments(@Body() comments: any[], @Req() req: any) {
+  async bulkCreateComments(@Body() comments: any[]) {
     const commentServiceUrl = this.configService.get<string>('COMMENT_SERVICE_URL') || 'http://localhost:3003';
 
     this.logger.log(`📥 Bulk create comments request: ${comments.length} comments`);
@@ -71,7 +69,7 @@ export class CommentsController {
       const response = await firstValueFrom(
         this.httpService.post(`${commentServiceUrl}/comments/bulk`, comments, {
           headers: {
-            Authorization: req.headers.authorization,
+            'Content-Type': 'application/json',
           },
         }),
       );
