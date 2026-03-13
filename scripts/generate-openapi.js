@@ -15,7 +15,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const https = require('https');
+const http = require('http');
 
 const SERVICES = [
   { name: 'api-gateway', url: 'http://localhost:3000/docs-json' },
@@ -38,7 +38,7 @@ function fetchOpenApiSpec(service) {
   return new Promise((resolve, reject) => {
     console.log(`Fetching OpenAPI spec from ${service.name}...`);
     
-    https.get(service.url, (res) => {
+    http.get(service.url, (res) => {
       let data = '';
       
       res.on('data', (chunk) => {
@@ -54,24 +54,7 @@ function fetchOpenApiSpec(service) {
         }
       });
     }).on('error', (error) => {
-      // If https fails, try http
-      const http = require('http');
-      http.get(service.url.replace('https://', 'http://'), (res) => {
-        let data = '';
-        
-        res.on('data', (chunk) => {
-          data += chunk;
-        });
-        
-        res.on('end', () => {
-          try {
-            const spec = JSON.parse(data);
-            resolve(spec);
-          } catch (error) {
-            reject(new Error(`Failed to fetch from ${service.name}: ${error.message}`));
-          }
-        });
-      }).on('error', reject);
+      reject(new Error(`Failed to fetch from ${service.name}: ${error.message}`));
     });
   });
 }

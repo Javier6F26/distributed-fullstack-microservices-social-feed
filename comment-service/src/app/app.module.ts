@@ -14,7 +14,7 @@ import { CommentsSyncModule } from './comments-sync/comments-sync.module';
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        uri: configService.get<string>('MONGODB_URI') || 'mongodb://localhost:27017/comments',
+        uri: configService.get<string>('MONGODB_URI_COMMENT') || configService.get<string>('MONGODB_URI') || 'mongodb://localhost:27017/comment-service',
       }),
       inject: [ConfigService],
     }),

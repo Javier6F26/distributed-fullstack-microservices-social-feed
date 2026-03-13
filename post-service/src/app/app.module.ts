@@ -13,7 +13,7 @@ import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        uri: configService.get<string>('MONGODB_URI') || 'mongodb://localhost:27017/posts',
+        uri: configService.get<string>('MONGODB_URI_POST') || configService.get<string>('MONGODB_URI') || 'mongodb://localhost:27017/post-service',
       }),
       inject: [ConfigService],
     }),
