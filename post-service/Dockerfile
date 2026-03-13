@@ -27,6 +27,9 @@ RUN npx nx sync
 # Build the Post Service
 RUN npx nx build post-service --configuration=production
 
+# Prune dependencies for production (removes unused deps from node_modules)
+RUN npx nx prune post-service
+
 # Stage 2: Runner - Run with Node slim
 FROM node:20-slim
 
@@ -39,7 +42,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 # Copy built artifacts from builder stage
 COPY --from=builder /app/post-service/dist ./
 
-# Copy node_modules from builder stage
+# Copy pruned node_modules from builder stage
 COPY --from=builder /app/node_modules ./node_modules
 
 # Set environment variables
