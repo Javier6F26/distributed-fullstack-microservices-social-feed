@@ -1,5 +1,5 @@
 {
-  "name": "@prueba-tecnica-fullstack-angular-nest-js-mongo-db/api-gateway",
+  "name": "@distributed-fullstack-microservices/api-gateway",
   "version": "0.0.1",
   "private": true,
   "nx": {
@@ -63,15 +63,15 @@
           "build"
         ],
         "options": {
-          "buildTarget": "@prueba-tecnica-fullstack-angular-nest-js-mongo-db/api-gateway:build",
+          "buildTarget": "@distributed-fullstack-microservices/api-gateway:build",
           "runBuildTargetDependencies": false
         },
         "configurations": {
           "development": {
-            "buildTarget": "@prueba-tecnica-fullstack-angular-nest-js-mongo-db/api-gateway:build:development"
+            "buildTarget": "@distributed-fullstack-microservices/api-gateway:build:development"
           },
           "production": {
-            "buildTarget": "@prueba-tecnica-fullstack-angular-nest-js-mongo-db/api-gateway:build:production"
+            "buildTarget": "@distributed-fullstack-microservices/api-gateway:build:production"
           }
         }
       },

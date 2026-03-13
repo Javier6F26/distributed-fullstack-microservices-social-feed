@@ -1,5 +1,5 @@
 {
-  "name": "@prueba-tecnica-fullstack-angular-nest-js-mongo-db/user-service",
+  "name": "@distributed-fullstack-microservices/user-service",
   "version": "0.0.1",
   "private": true,
   "scripts": {
@@ -66,15 +66,15 @@
           "build"
         ],
         "options": {
-          "buildTarget": "@prueba-tecnica-fullstack-angular-nest-js-mongo-db/user-service:build",
+          "buildTarget": "@distributed-fullstack-microservices/user-service:build",
           "runBuildTargetDependencies": false
         },
         "configurations": {
           "development": {
-            "buildTarget": "@prueba-tecnica-fullstack-angular-nest-js-mongo-db/user-service:build:development"
+            "buildTarget": "@distributed-fullstack-microservices/user-service:build:development"
           },
           "production": {
-            "buildTarget": "@prueba-tecnica-fullstack-angular-nest-js-mongo-db/user-service:build:production"
+            "buildTarget": "@distributed-fullstack-microservices/user-service:build:production"
           }
         }
       },
