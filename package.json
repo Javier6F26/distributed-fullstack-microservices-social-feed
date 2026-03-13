@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "seed": "npx ts-node tools/seed-fix.ts",
+    "seed": "npx ts-node scripts/seed-fix.ts",
     "generate:openapi": "node scripts/generate-openapi.js",
     "generate:postman": "node scripts/generate-postman.js"
   },
