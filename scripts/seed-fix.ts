@@ -12,7 +12,7 @@
 
 import axios from 'axios';
 
-const API_GATEWAY_URL = 'http://204.88.0.80:3000';
+const API_GATEWAY_URL = 'http://localhost:3000';
 
 const USERS = [
   { username: 'johndoe', email: 'john@example.com', password: 'SecurePass123!' },
