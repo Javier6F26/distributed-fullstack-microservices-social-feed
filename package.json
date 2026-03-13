@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "seed": "npx ts-node tools/seed-fix.ts"
+    "seed": "npx ts-node tools/seed-fix.ts",
+    "generate:openapi": "node scripts/generate-openapi.js",
+    "generate:postman": "node scripts/generate-postman.js"
   },
   "private": true,
   "devDependencies": {
@@ -63,13 +65,9 @@
   "workspaces": [
     "packages/*",
     "api-gateway",
-    "e2e/api-gateway-e2e",
     "user-service",
-    "e2e/user-service-e2e",
     "post-service",
-    "e2e/post-service-e2e",
     "comment-service",
-    "e2e/comment-service-e2e",
     "shared-types"
   ],
   "dependencies": {

@@ -4,25 +4,13 @@
   "files": [],
   "references": [
     {
-      "path": "./e2e/api-gateway-e2e"
-    },
-    {
       "path": "./api-gateway"
-    },
-    {
-      "path": "./e2e/user-service-e2e"
     },
     {
       "path": "./user-service"
     },
     {
-      "path": "./e2e/post-service-e2e"
-    },
-    {
       "path": "./post-service"
-    },
-    {
-      "path": "./e2e/comment-service-e2e"
     },
     {
       "path": "./comment-service"
