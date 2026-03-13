@@ -148,12 +148,8 @@ export class PostFeedComponent implements OnInit, OnDestroy {
    * Also replaces tempId-based _id with real postId when available
    */
   private clearPendingFlag(tempId: string, postId?: string): void {
-    console.log('[PostFeed] clearPendingFlag called:', { tempId, postId });
-    console.log('[PostFeed] Current postTempIds:', Array.from(this.postTempIds));
-    
     if (!postId) {
       // No real postId provided, just clear pending flag
-      console.log('[PostFeed] No postId provided, just clearing pending flag');
       this.posts.update(posts =>
         posts.map(post =>
           post.tempId === tempId || post._id === tempId
@@ -180,10 +176,7 @@ export class PostFeedComponent implements OnInit, OnDestroy {
       return;
     }
 
-    console.log('[PostFeed] Replacing tempId with real postId:', { tempId, postId });
-    
     // Replace tempId with real postId for both posts and comments
-    const postsBefore = this.posts();
     this.posts.update(posts =>
       posts.map(post =>
         post.tempId === tempId
@@ -191,17 +184,13 @@ export class PostFeedComponent implements OnInit, OnDestroy {
           : post
       )
     );
-    const postsAfter = this.posts();
-    console.log('[PostFeed] Posts before:', postsBefore.find(p => p.tempId === tempId));
-    console.log('[PostFeed] Posts after:', postsAfter.find(p => p._id === postId));
 
     // Update comments: clear pending and update postId references
     this.expandedComments.update(commentMap => {
       const updatedMap = new Map(commentMap);
-      
+
       // If the postId being confirmed is a POST (not a comment), update all comments referencing it
       if (this.postTempIds.has(tempId)) {
-        console.log('[PostFeed] This is a POST confirmation, updating comments map key');
         // This is a post confirmation - update all comments that reference this post's tempId
         updatedMap.forEach((comments, mapPostId) => {
           if (mapPostId === tempId) {
@@ -212,11 +201,9 @@ export class PostFeedComponent implements OnInit, OnDestroy {
               postId: postId, // Update comment's postId reference
               pending: false
             })));
-            console.log('[PostFeed] Updated comments map key from', tempId, 'to', postId);
           }
         });
       } else {
-        console.log('[PostFeed] This is a COMMENT confirmation, just clearing pending');
         // This is a comment confirmation - just clear pending flag
         updatedMap.forEach((comments, mapPostId) => {
           updatedMap.set(
@@ -231,8 +218,6 @@ export class PostFeedComponent implements OnInit, OnDestroy {
       }
       return updatedMap;
     });
-    
-    console.log('[PostFeed] clearPendingFlag complete');
   }
 
   /**

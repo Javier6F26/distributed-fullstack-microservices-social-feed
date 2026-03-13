@@ -123,14 +123,12 @@ export class PendingWritesNotifyService implements OnDestroy {
 
       try {
         const response: any = await this.http.get(`/api/v1/posts/pending/${tempId}`).toPromise();
-        console.log(`[PendingWrites] Poll response for ${tempId}:`, response);
         
         if (response?.confirmed) {
           // Confirmed (not in cache anymore)
           this.pending.delete(tempId);
           this.confirmedTempIds.add(tempId); // Store for late subscribers
           // Emit with postId if available (for replacing optimistic _id)
-          console.log(`[PendingWrites] Emitting confirmed for ${tempId} with postId:`, response.postId);
           this.confirmedSubject.next({ tempId, postId: response.postId });
         } else if (response?.error) {
           // Explicit error from server

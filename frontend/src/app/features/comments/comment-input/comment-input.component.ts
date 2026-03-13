@@ -63,11 +63,6 @@ export class CommentInputComponent implements OnInit, OnChanges, OnDestroy {
         this.commentForm.enable();
       }
     }
-    
-    // Log postId changes for debugging
-    if (this.postId) {
-      console.log('[CommentInput] postId changed to:', this.postId);
-    }
   }
 
   ngOnDestroy(): void {
@@ -129,19 +124,16 @@ export class CommentInputComponent implements OnInit, OnChanges, OnDestroy {
   async onSubmit() {
     // Block submission if disabled (e.g., post is pending confirmation)
     if (this.disabled) {
-      console.log('[CommentInput] Submission blocked - component is disabled');
       return;
     }
     
     if (this.commentForm.invalid || !this.postId || !this.authService.isAuthenticated()) {
-      console.log('[CommentInput] Submission blocked - invalid form, no postId, or not authenticated');
       return;
     }
 
     // Additional check: postId must look like a MongoDB ObjectId (24 hex characters)
     const objectIdRegex = /^[0-9a-fA-F]{24}$/;
     if (!objectIdRegex.test(this.postId)) {
-      console.log('[CommentInput] Submission blocked - postId is not a valid MongoDB ObjectId:', this.postId);
       this.handleApiError('Post is still being published. Please wait a moment and try again.');
       return;
     }
