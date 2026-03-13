@@ -127,14 +127,14 @@ export class PostsController {
   }
 
   /**
-   * POST /posts/bulk-create
+   * POST /posts/bulk
    * Bulk create posts with strict schema validation.
    * Development/seeding endpoint - should be protected in production.
    *
    * @param bulkCreatePostsDto - Array of posts to create
    * @returns Object with created, skipped, and error counts
    */
-  @PostDecorator('bulk-create')
+  @PostDecorator('bulk')
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
   @ApiOperation({ summary: 'Bulk create posts (for seeding/development)' })
   @ApiResponse({ status: 201, description: 'Posts created successfully' })

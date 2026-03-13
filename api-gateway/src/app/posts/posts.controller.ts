@@ -13,6 +13,7 @@ import {
   Req,
   UseGuards,
   UseInterceptors,
+  Logger,
 } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
@@ -37,12 +38,67 @@ import { Throttle } from '@nestjs/throttler';
 
 @Controller('posts')
 export class PostsController {
+  private readonly logger = new Logger(PostsController.name);
+
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly rabbitmqService: RabbitmqService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
+
+  /**
+   * POST /posts/bulk
+   * Bulk create posts via Post Service.
+   * Development/seeding endpoint - should be protected in production.
+   */
+  @Post('bulk')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute for bulk operations
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Bulk create posts (for seeding/development)' })
+  @ApiBody({
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          authorId: { type: 'string', example: 'user123' },
+          author: { type: 'string', example: 'John Doe' },
+          title: { type: 'string', example: 'My Post' },
+          body: { type: 'string', example: 'Post content...' },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Posts created successfully' })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async bulkCreatePosts(@Body() posts: any[], @Req() req: any) {
+    const postServiceUrl = this.configService.get<string>('POST_SERVICE_URL') || 'http://localhost:3002';
+
+    this.logger.log(`📥 Bulk create posts request: ${posts.length} posts`);
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(`${postServiceUrl}/posts/bulk`, posts, {
+          headers: {
+            Authorization: req.headers.authorization,
+          },
+        }),
+      );
+
+      this.logger.log(`✅ Bulk create posts response: ${response.data.summary?.created || 0} created`);
+      return response.data;
+    } catch (error: any) {
+      this.logger.error('❌ Bulk create posts error:', error.response?.data || error.message);
+      return {
+        success: false,
+        message: 'Bulk post creation service temporarily unavailable',
+        status: HttpStatus.SERVICE_UNAVAILABLE,
+      };
+    }
+  }
 
   @Get()
   @UseInterceptors(CacheInterceptor)

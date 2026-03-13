@@ -3,7 +3,14 @@ import { Document, Types } from 'mongoose';
 
 export type CommentDocument = Comment & Document;
 
-@Schema({ collection: 'comments', timestamps: true })
+/**
+ * Comment Schema with automatic timestamps (createdAt, updatedAt).
+ * updatedAt is used to detect if a comment has been edited.
+ */
+@Schema({ 
+  collection: 'comments', 
+  timestamps: true, // Automatically manages createdAt and updatedAt
+})
 export class Comment {
   @Prop({ required: true, type: Types.ObjectId, ref: 'Post' })
   postId: Types.ObjectId;
@@ -20,11 +27,14 @@ export class Comment {
   @Prop({ required: true, minlength: 1, maxlength: 1000 })
   body: string;
 
-  @Prop({ required: true, default: () => new Date() })
+  // Managed automatically by Mongoose timestamps: true
+  @Prop()
   createdAt: Date;
 
-  @Prop({ type: Date })
-  updatedAt?: Date;
+  // Managed automatically by Mongoose timestamps: true
+  // Used to detect if comment has been edited
+  @Prop()
+  updatedAt: Date;
 }
 
 export const CommentSchema = SchemaFactory.createForClass(Comment);

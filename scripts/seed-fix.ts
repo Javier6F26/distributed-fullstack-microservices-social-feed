@@ -8,16 +8,11 @@
  *
  * Usage:
  *   npm run seed
- *   npm run seed:users
- *   npm run seed:posts
- *   npm run seed:comments
  */
 
 import axios from 'axios';
 
-const USER_SERVICE_URL = process.env.USER_SERVICE_URL || 'http://localhost:3001';
-const POST_SERVICE_URL = process.env.POST_SERVICE_URL || 'http://localhost:3002';
-const COMMENT_SERVICE_URL = process.env.COMMENT_SERVICE_URL || 'http://localhost:3003';
+const API_GATEWAY_URL = 'http://204.88.0.80:3000';
 
 const USERS = [
   { username: 'johndoe', email: 'john@example.com', password: 'SecurePass123!' },
@@ -129,7 +124,7 @@ async function seedUsers() {
   console.log('\n📝 Seeding Users...');
   const users = generateUniqueUsers();
   const suffix = users[0].username.split('_').pop() || String(Date.now());
-  const response = await axios.post(`${USER_SERVICE_URL}/users/bulk-create`, { users }, { timeout: 30000 });
+  const response = await axios.post(`${API_GATEWAY_URL}/users/bulk`, { users }, { timeout: 30000 });
   const result = response.data;
   console.log(`   Created: ${result.summary.created}, Skipped: ${result.summary.skipped}, Errors: ${result.summary.errors}`);
 
@@ -141,7 +136,7 @@ async function seedUsers() {
 async function seedPosts(userIds: Record<string, string>, suffix: string) {
   console.log('\n📝 Seeding Posts...');
   const posts = generatePosts(userIds, suffix);
-  const response = await axios.post(`${POST_SERVICE_URL}/posts/bulk-create`, { posts }, { timeout: 30000 });
+  const response = await axios.post(`${API_GATEWAY_URL}/posts/bulk`, { posts }, { timeout: 30000 });
   const result = response.data;
   console.log(`   Created: ${result.summary.created}, Skipped: ${result.summary.skipped}, Errors: ${result.summary.errors}`);
 
@@ -153,7 +148,7 @@ async function seedPosts(userIds: Record<string, string>, suffix: string) {
 async function seedComments(userIds: Record<string, string>, postIds: Record<string, string>) {
   console.log('\n📝 Seeding Comments...');
   const comments = generateComments(userIds, postIds);
-  const response = await axios.post(`${COMMENT_SERVICE_URL}/comments/bulk-create`, { comments }, { timeout: 30000 });
+  const response = await axios.post(`${API_GATEWAY_URL}/comments/bulk`, { comments }, { timeout: 30000 });
   const result = response.data;
   console.log(`   Created: ${result.summary.created}, Skipped: ${result.summary.skipped}, Errors: ${result.summary.errors}`);
   return result;

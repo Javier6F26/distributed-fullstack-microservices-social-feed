@@ -44,14 +44,14 @@ export class UsersController {
   }
 
   /**
-   * POST /users/bulk-create
+   * POST /users/bulk
    * Bulk create users with strict schema validation.
    * Development/seeding endpoint - should be protected in production.
    *
    * @param bulkCreateUsersDto - Array of users to create
    * @returns Object with created, skipped, and error counts
    */
-  @Post('bulk-create')
+  @Post('bulk')
   @UsePipes(
     new ValidationPipe({
       transform: true,

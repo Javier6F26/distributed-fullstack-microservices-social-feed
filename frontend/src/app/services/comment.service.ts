@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
+import { switchMap, tap, delay } from 'rxjs/operators';
 import type { Comment } from './post.service';
 
 export { Comment };
@@ -43,14 +44,24 @@ export class CommentService {
    * @returns Observable with CreateCommentResponse
    */
   createComment(postId: string, body: string): Observable<CreateCommentResponse> {
-    return this.http.post<CreateCommentResponse>(`${this.API_URL}/comments`, { postId, body });
+    return this.http.post<CreateCommentResponse>(`${this.API_URL}/comments`, { postId, body }).pipe(
+      tap(response => console.log('[CommentService] Comment created:', response)),
+      delay(50) // Simular latencia de red para UX consistente
+    );
   }
 
   /**
    * Get comments for a specific post
+   * Uses switchMap to cancel previous requests if postId changes rapidly
    */
   getPostComments(postId: string): Observable<{ success: boolean; data: Comment[] }> {
-    return this.http.get<{ success: boolean; data: Comment[] }>(`${this.API_URL}/posts/post/${postId}/comments`);
+    return of(postId).pipe(
+      switchMap(id => 
+        this.http.get<{ success: boolean; data: Comment[] }>(`${this.API_URL}/posts/post/${id}/comments`)
+      ),
+      tap(response => console.log('[CommentService] Comments fetched:', response.data.length)),
+      delay(50)
+    );
   }
 
   /**

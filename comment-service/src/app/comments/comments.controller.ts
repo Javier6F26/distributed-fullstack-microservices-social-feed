@@ -106,14 +106,14 @@ export class CommentsController {
   }
 
   /**
-   * POST /comments/bulk-create
+   * POST /comments/bulk
    * Bulk create comments with strict schema validation.
    * Development/seeding endpoint - should be protected in production.
    *
    * @param bulkCreateCommentsDto - Array of comments to create
    * @returns Object with created, skipped, and error counts
    */
-  @PostDecorator('bulk-create')
+  @PostDecorator('bulk')
   @UsePipes(new ValidationPipe({ transform: true, whitelist: true, forbidNonWhitelisted: true }))
   @ApiOperation({ summary: 'Bulk create comments (for seeding/development)' })
   @ApiResponse({ status: 201, description: 'Comments created successfully' })

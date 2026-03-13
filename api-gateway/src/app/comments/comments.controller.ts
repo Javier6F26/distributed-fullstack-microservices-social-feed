@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, UseInterceptors, Inject, Param, Body, HttpStatus, HttpCode, UseGuards, Query, Req, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, UseInterceptors, Inject, Param, Body, HttpStatus, HttpCode, UseGuards, Query, Req, NotFoundException, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 import { CacheInterceptor, CacheTTL } from '@nestjs/cache-manager';
@@ -25,12 +25,68 @@ import {
 @ApiTags('comments')
 @Controller('comments')
 export class CommentsController {
+  private readonly logger = new Logger(CommentsController.name);
+
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly rabbitmqService: RabbitmqService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
+
+  /**
+   * POST /comments/bulk
+   * Bulk create comments via Comment Service.
+   * Development/seeding endpoint - should be protected in production.
+   */
+  @Post('bulk')
+  @UseGuards(JwtAuthGuard)
+  @Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute for bulk operations
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Bulk create comments (for seeding/development)' })
+  @ApiBody({
+    schema: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          postId: { type: 'string', example: '60d5ecb5c7f6a92c2c9d9c82' },
+          authorId: { type: 'string', example: 'user123' },
+          name: { type: 'string', example: 'John Doe' },
+          email: { type: 'string', example: 'john@example.com' },
+          body: { type: 'string', example: 'Great post!' },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Comments created successfully' })
+  @ApiResponse({ status: 400, description: 'Validation failed' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async bulkCreateComments(@Body() comments: any[], @Req() req: any) {
+    const commentServiceUrl = this.configService.get<string>('COMMENT_SERVICE_URL') || 'http://localhost:3003';
+
+    this.logger.log(`📥 Bulk create comments request: ${comments.length} comments`);
+
+    try {
+      const response = await firstValueFrom(
+        this.httpService.post(`${commentServiceUrl}/comments/bulk`, comments, {
+          headers: {
+            Authorization: req.headers.authorization,
+          },
+        }),
+      );
+
+      this.logger.log(`✅ Bulk create comments response: ${response.data.summary?.created || 0} created`);
+      return response.data;
+    } catch (error: any) {
+      this.logger.error('❌ Bulk create comments error:', error.response?.data || error.message);
+      return {
+        success: false,
+        message: 'Bulk comment creation service temporarily unavailable',
+        status: HttpStatus.SERVICE_UNAVAILABLE,
+      };
+    }
+  }
 
   @Get('post/:postId/all')
   @UseInterceptors(CacheInterceptor)

@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
+import { switchMap, delay, tap } from 'rxjs/operators';
 
 export interface Comment {
   _id: string;
@@ -77,7 +78,10 @@ export class PostService {
     if (cursor) {
       params = params.set('cursor', cursor);
     }
-    return this.http.get<ApiResponse>(`${this.API_URL}/posts`, { params });
+    return this.http.get<ApiResponse>(`${this.API_URL}/posts`, { params }).pipe(
+      tap(response => console.log('[PostService] Posts fetched:', response.data.length)),
+      delay(100) // Simular latencia de red para UX consistente
+    );
   }
 
   searchPosts(query: string, limit = 20, cursor?: string | null): Observable<ApiResponse> {
@@ -87,7 +91,10 @@ export class PostService {
     if (cursor) {
       params = params.set('cursor', cursor);
     }
-    return this.http.get<ApiResponse>(`${this.API_URL}/posts/search`, { params });
+    return this.http.get<ApiResponse>(`${this.API_URL}/posts/search`, { params }).pipe(
+      tap(response => console.log('[PostService] Search results:', response.data.length)),
+      delay(50)
+    );
   }
 
   filterPosts(startDate?: string, endDate?: string, limit = 20, cursor?: string | null): Observable<ApiResponse> {
