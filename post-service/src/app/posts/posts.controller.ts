@@ -68,10 +68,6 @@ export class PostsController {
     // Get userId from X-User-Id header (forwarded by API Gateway)
     const userId = req.headers['x-user-id'] || req.user?.userId;
 
-    console.log('🔍 Post-service update - userId from header:', req.headers['x-user-id']);
-    console.log('🔍 Post-service update - req.user:', req.user);
-    console.log('🔍 Post-service update - final userId:', userId);
-
     if (!userId) {
       return {
         success: false,
@@ -103,10 +99,6 @@ export class PostsController {
   async delete(@Param('id') id: string, @Req() req: any) {
     // Get userId from X-User-Id header (forwarded by API Gateway)
     const userId = req.headers['x-user-id'] || req.user?.userId;
-
-    console.log('🔍 Post-service delete - userId from header:', req.headers['x-user-id']);
-    console.log('🔍 Post-service delete - req.user:', req.user);
-    console.log('🔍 Post-service delete - final userId:', userId);
 
     if (!userId) {
       return {

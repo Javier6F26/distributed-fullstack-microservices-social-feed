@@ -1,19 +1,125 @@
-version: '3.8'
 services:
-  mongo:
+  # ==================== Application Services ====================
+
+  # Frontend - Angular application served by nginx
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # API Gateway - Main entry point for all API requests
+  api-gateway:
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./api-gateway/.env
+    environment:
+      - NODE_ENV=production
+      - USER_SERVICE_URL=http://user-service:3001
+      - POST_SERVICE_URL=http://post-service:3002
+      - COMMENT_SERVICE_URL=http://comment-service:3003
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - user-service
+      - post-service
+      - comment-service
+      - redis
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # User Service - Handles user authentication and management
+  user-service:
+    build:
+      context: .
+      dockerfile: user-service/Dockerfile
+    env_file:
+      - ./user-service/.env
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://mongodb:27017/users
+      - CORS_ORIGIN=http://localhost:4200
+    depends_on:
+      - mongodb
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Post Service - Handles posts and content management
+  post-service:
+    build:
+      context: .
+      dockerfile: post-service/Dockerfile
+    env_file:
+      - ./post-service/.env
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://mongodb:27017/posts
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - mongodb
+      - redis
+      - rabbitmq
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # Comment Service - Handles comments on posts
+  comment-service:
+    build:
+      context: .
+      dockerfile: comment-service/Dockerfile
+    env_file:
+      - ./comment-service/.env
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://mongodb:27017/comments
+      - RABBITMQ_URI=amqp://guest:guest@rabbitmq:5672
+    depends_on:
+      - mongodb
+      - rabbitmq
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  # ==================== Infrastructure Services ====================
+
+  # MongoDB - Document database
+  mongodb:
     image: mongo
     ports:
       - "27017:27017"
     volumes:
       - mongo-data:/data/db
+    networks:
+      - app-network
+    restart: unless-stopped
 
+  # Redis - In-memory cache and data store
   redis:
     image: redis:alpine
     ports:
       - "6379:6379"
     volumes:
       - redis-data:/data
+    networks:
+      - app-network
+    restart: unless-stopped
 
+  # RabbitMQ - Message broker for event-driven architecture
   rabbitmq:
     image: rabbitmq:3-management-alpine
     ports:
@@ -24,7 +130,16 @@ services:
       RABBITMQ_DEFAULT_PASS: guest
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - app-network
+    restart: unless-stopped
 
+# Networks
+networks:
+  app-network:
+    driver: bridge
+
+# Volumes
 volumes:
   mongo-data:
   redis-data:

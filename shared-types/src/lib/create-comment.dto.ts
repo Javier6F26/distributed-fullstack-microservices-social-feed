@@ -1,4 +1,4 @@
-import { IsString, MinLength, MaxLength, IsNotEmpty } from 'class-validator';
+import { IsString, MinLength, MaxLength, IsNotEmpty, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
@@ -6,7 +6,7 @@ import { ApiProperty } from '@nestjs/swagger';
  * Used by API Gateway for validation before enqueueing to RabbitMQ.
  *
  * Validation Rules:
- * - postId: required, valid string
+ * - postId: required, valid MongoDB ObjectId (24-character hex string)
  * - body: required, 1-1000 characters
  */
 export class CreateCommentDto {
@@ -17,6 +17,9 @@ export class CreateCommentDto {
   })
   @IsString()
   @IsNotEmpty({ message: 'Post ID is required' })
+  @Matches(/^[0-9a-fA-F]{24}$/, {
+    message: 'Post ID must be a valid MongoDB ObjectId (24-character hex string)',
+  })
   postId!: string;
 
   @ApiProperty({

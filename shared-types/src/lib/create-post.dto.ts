@@ -1,4 +1,4 @@
-import { IsString, MinLength, MaxLength, IsNotEmpty } from 'class-validator';
+import { IsString, MinLength, MaxLength, IsNotEmpty, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
@@ -8,6 +8,7 @@ import { ApiProperty } from '@nestjs/swagger';
  * Validation Rules:
  * - title: required, 5-100 characters
  * - body: required, 10-5000 characters
+ * - tempId: optional, client-generated ID for optimistic UI correlation
  */
 export class CreatePostDto {
   @ApiProperty({
@@ -35,4 +36,14 @@ export class CreatePostDto {
   @MinLength(10, { message: 'Body must be at least 10 characters long' })
   @MaxLength(5000, { message: 'Body must not exceed 5000 characters' })
   body!: string;
+
+  @ApiProperty({
+    description: 'Client-generated temp ID for optimistic UI correlation',
+    example: 'temp_1234567890_abc123',
+    type: String,
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  tempId?: string;
 }

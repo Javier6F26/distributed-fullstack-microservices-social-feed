@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Comment, CommentDocument } from '../schemas/comment.schema';
@@ -22,10 +22,13 @@ export class CommentsService {
    * @returns Created comment document
    */
   async createCommentFromQueue(message: CommentCreateMessage): Promise<CommentDocument> {
-    // Convert postId to ObjectId if it's a valid ObjectId string
-    const postIdObj = Types.ObjectId.isValid(message.postId)
-      ? new Types.ObjectId(message.postId)
-      : message.postId;
+    // Validate postId format - MUST be a valid MongoDB ObjectId
+    if (!Types.ObjectId.isValid(message.postId)) {
+      this.logger.error(`❌ Invalid postId format: "${message.postId}" - must be a valid MongoDB ObjectId. This usually means a comment was submitted for an unconfirmed post.`);
+      throw new BadRequestException(`Invalid postId format: must be a valid MongoDB ObjectId. If this is a newly created post, please wait a moment for it to be confirmed.`);
+    }
+
+    const postIdObj = new Types.ObjectId(message.postId);
 
     const comment = new this.commentModel({
       postId: postIdObj,

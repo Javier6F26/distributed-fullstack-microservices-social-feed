@@ -47,7 +47,14 @@ export class RabbitmqService implements OnModuleInit {
    */
   async emitPostCreated(payload: { postId: string; userId: string; tempId?: string }) {
     try {
-      this.client.emit('post.created', payload);
+      const result$ = this.client.emit('post.created', payload);
+      
+      // MUST subscribe for the message to be sent!
+      result$.subscribe({
+        next: () => {},
+        error: (err) => this.logger.error('Error sending post.created:', err),
+      });
+      
       this.logger.log(`📤 Emitted post.created event for tempId: ${payload.tempId}`);
     } catch (error) {
       this.logger.error('Failed to emit post.created event:', error.message);
