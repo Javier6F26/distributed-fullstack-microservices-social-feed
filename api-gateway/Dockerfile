@@ -38,7 +38,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 
 # Copy built artifacts from builder stage
 COPY --from=builder /app/api-gateway/dist ./
-COPY --from=builder /app/shared-types/dist ./shared-types
 
 # Copy node_modules from builder stage
 COPY --from=builder /app/node_modules ./node_modules
