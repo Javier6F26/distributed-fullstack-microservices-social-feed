@@ -40,9 +40,15 @@ function convertToPostman(openApiPath, serviceName) {
   return new Promise((resolve, reject) => {
     console.log(`Converting ${serviceName} to Postman collection...`);
     
+    if (!fs.existsSync(openApiPath)) {
+      reject(new Error(`OpenAPI spec not found at ${openApiPath}`));
+      return;
+    }
+
     const openApiSpec = JSON.parse(fs.readFileSync(openApiPath, 'utf8'));
-    
+
     const conversionOptions = {
+      type: 'json',
       components: {
         securitySchemes: {
           bearerAuth: {
