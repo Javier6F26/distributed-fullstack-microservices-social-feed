@@ -39,7 +39,7 @@ async function bootstrap() {
   Logger.log(`📄 OpenAPI Documentation: http://localhost:${port}/docs`);
 
   // RabbitMQ microservice for consuming events from Post and Comment services
-  const rabbitmqUri = process.env.RABBITMQ_URI || 'amqp://localhost:5672';
+  const rabbitmqUri = process.env.RABBITMQ_URI || 'amqp://admin:admin@localhost:5672';
   
   // Listen for post events
   app.connectMicroservice<MicroserviceOptions>({

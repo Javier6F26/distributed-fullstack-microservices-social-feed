@@ -27,4 +27,4 @@ export const COMMENT_CREATE_QUEUE_OPTIONS = {
 
 // Environment variable keys
 export const RABBITMQ_URI_KEY = 'RABBITMQ_URI';
-export const RABBITMQ_DEFAULT_URI = 'amqp://guest:guest@localhost:5672';
+export const RABBITMQ_DEFAULT_URI = 'amqp://admin:admin@localhost:5672';
