@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, of } from 'rxjs';
-import { switchMap, delay, tap } from 'rxjs/operators';
+import { Observable } from 'rxjs';
+import { delay, tap } from 'rxjs/operators';
 
 export interface Comment {
   _id: string;
