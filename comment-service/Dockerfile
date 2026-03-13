@@ -39,12 +39,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl \
 
 # Copy built artifacts from builder stage
 COPY --from=builder /app/comment-service/dist ./
+COPY --from=builder /app/shared-types/dist ./shared-types
 
-# Copy service package.json for runtime dependencies
-COPY --from=builder /app/comment-service/package.json ./
-
-# Install production dependencies only
-RUN npm install --only=production
+# Copy node_modules from builder stage
+COPY --from=builder /app/node_modules ./node_modules
 
 # Set environment variables
 ENV NODE_ENV=production
