@@ -242,13 +242,17 @@
             <div class="border-t border-gray-100 pt-4">
               <!-- Comment Input - Conditional based on authentication -->
               @if (authService.isAuthenticated()) {
-                <!-- Authenticated user - show comment input -->
+                <!-- Authenticated user - show comment input (disabled if post is pending) -->
                 <div class="mb-4">
                   <app-comment-input
                     [postId]="post._id"
+                    [disabled]="!!post.pending"
                     (commentSubmitted)="onCommentSubmitted($event)"
                     (commentFailed)="onCommentFailed($event)"
                   />
+                  @if (post.pending) {
+                    <p class="text-xs text-gray-500 italic mt-1">Post is being published. Comments will be enabled shortly.</p>
+                  }
                 </div>
               } @else {
                 <!-- Unauthenticated user - show login prompt -->

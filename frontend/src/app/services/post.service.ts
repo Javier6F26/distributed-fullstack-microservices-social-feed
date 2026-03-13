@@ -139,8 +139,12 @@ export class PostService {
    * @param body - Post body (10-5000 characters)
    * @returns Observable with CreatePostResponse
    */
-  createPost(title: string, body: string): Observable<CreatePostResponse> {
-    return this.http.post<CreatePostResponse>(`${this.API_URL}/posts`, { title, body });
+  createPost(title: string, body: string, tempId?: string): Observable<CreatePostResponse> {
+    const payload: any = { title, body };
+    if (tempId) {
+      payload.tempId = tempId;
+    }
+    return this.http.post<CreatePostResponse>(`${this.API_URL}/posts`, payload);
   }
 
   /**

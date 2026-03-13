@@ -148,30 +148,91 @@ export class PostFeedComponent implements OnInit, OnDestroy {
    * Also replaces tempId-based _id with real postId when available
    */
   private clearPendingFlag(tempId: string, postId?: string): void {
-    // Clear pending flag on posts and replace _id if postId is provided
+    console.log('[PostFeed] clearPendingFlag called:', { tempId, postId });
+    console.log('[PostFeed] Current postTempIds:', Array.from(this.postTempIds));
+    
+    if (!postId) {
+      // No real postId provided, just clear pending flag
+      console.log('[PostFeed] No postId provided, just clearing pending flag');
+      this.posts.update(posts =>
+        posts.map(post =>
+          post.tempId === tempId || post._id === tempId
+            ? { ...post, pending: false }
+            : post
+        )
+      );
+
+      // Clear pending flag on comments in expandedComments map
+      this.expandedComments.update(commentMap => {
+        const updatedMap = new Map(commentMap);
+        updatedMap.forEach((comments, mapPostId) => {
+          updatedMap.set(
+            mapPostId,
+            comments.map(comment =>
+              comment.tempId === tempId || comment._id === tempId
+                ? { ...comment, pending: false }
+                : comment
+            )
+          );
+        });
+        return updatedMap;
+      });
+      return;
+    }
+
+    console.log('[PostFeed] Replacing tempId with real postId:', { tempId, postId });
+    
+    // Replace tempId with real postId for both posts and comments
+    const postsBefore = this.posts();
     this.posts.update(posts =>
       posts.map(post =>
-        post.tempId === tempId || post._id === tempId
-          ? { ...post, pending: false, _id: postId || post._id }
+        post.tempId === tempId
+          ? { ...post, pending: false, _id: postId } // Replace tempId-based post
           : post
       )
     );
+    const postsAfter = this.posts();
+    console.log('[PostFeed] Posts before:', postsBefore.find(p => p.tempId === tempId));
+    console.log('[PostFeed] Posts after:', postsAfter.find(p => p._id === postId));
 
-    // Clear pending flag on comments in expandedComments map
+    // Update comments: clear pending and update postId references
     this.expandedComments.update(commentMap => {
       const updatedMap = new Map(commentMap);
-      updatedMap.forEach((comments, postIdKey) => {
-        updatedMap.set(
-          postIdKey,
-          comments.map(comment =>
-            comment.tempId === tempId || comment._id === tempId
-              ? { ...comment, pending: false, _id: postId || comment._id }
-              : comment
-          )
-        );
-      });
+      
+      // If the postId being confirmed is a POST (not a comment), update all comments referencing it
+      if (this.postTempIds.has(tempId)) {
+        console.log('[PostFeed] This is a POST confirmation, updating comments map key');
+        // This is a post confirmation - update all comments that reference this post's tempId
+        updatedMap.forEach((comments, mapPostId) => {
+          if (mapPostId === tempId) {
+            // Update the map key from tempId to real postId
+            updatedMap.delete(tempId);
+            updatedMap.set(postId, comments.map(comment => ({
+              ...comment,
+              postId: postId, // Update comment's postId reference
+              pending: false
+            })));
+            console.log('[PostFeed] Updated comments map key from', tempId, 'to', postId);
+          }
+        });
+      } else {
+        console.log('[PostFeed] This is a COMMENT confirmation, just clearing pending');
+        // This is a comment confirmation - just clear pending flag
+        updatedMap.forEach((comments, mapPostId) => {
+          updatedMap.set(
+            mapPostId,
+            comments.map(comment =>
+              comment.tempId === tempId || comment._id === tempId
+                ? { ...comment, pending: false, _id: tempId } // Keep comment _id as tempId if no real commentId
+                : comment
+            )
+          );
+        });
+      }
       return updatedMap;
     });
+    
+    console.log('[PostFeed] clearPendingFlag complete');
   }
 
   /**
@@ -472,6 +533,13 @@ export class PostFeedComponent implements OnInit, OnDestroy {
 
       // Add optimistic post to top of feed immediately
       this.posts.set([event.post, ...currentPosts]);
+
+      // Scroll to top to show the new post
+      setTimeout(() => {
+        if (this.viewport) {
+          this.viewport.scrollToIndex(0, 'smooth');
+        }
+      }, 100);
     }
 
     // Close modal

@@ -137,7 +137,7 @@ export class CreatePostModalComponent implements OnDestroy {
       this.isSubmitting.set(false);
 
       // Fire-and-forget API call - handle success/error in subscription
-      this.postService.createPost(title, body).subscribe({
+      this.postService.createPost(title, body, tempId).subscribe({
         next: (response) => {
           if (response?.success && response.data) {
             // Start tracking pending write for confirmation
