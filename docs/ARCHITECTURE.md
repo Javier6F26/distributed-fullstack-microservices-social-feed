@@ -17,14 +17,14 @@ Este documento describe la arquitectura completa del sistema **Distributed Fulls
 
 ### Requisitos No Funcionales
 
-| Requisito | Meta | Implementación |
-|-----------|------|----------------|
-| **Rendimiento** | 60fps scrolling, <1ms retrievals | Redis cache, virtualized scrolling |
-| **Seguridad** | JWT seguro, rate limiting | HttpOnly cookies, throttler |
-| **Disponibilidad** | 99.9% uptime | Microservicios independientes |
-| **Escalabilidad** | Horizontal por servicio | Contenedores Docker, K8s ready |
-| **Consistencia** | Eventual consistency | RabbitMQ event-driven |
-| **Degradación Graceful** | Cache feed si servicios caen | Redis fallback |
+| Requisito                | Meta                             | Implementación                     |
+|--------------------------|----------------------------------|------------------------------------|
+| **Rendimiento**          | 60fps scrolling, <1ms retrievals | Redis cache, virtualized scrolling |
+| **Seguridad**            | JWT seguro, rate limiting        | HttpOnly cookies, throttler        |
+| **Disponibilidad**       | 99.9% uptime                     | Microservicios independientes      |
+| **Escalabilidad**        | Horizontal por servicio          | Contenedores Docker, K8s ready     |
+| **Consistencia**         | Eventual consistency             | RabbitMQ event-driven              |
+| **Degradación Graceful** | Cache feed si servicios caen     | Redis fallback                     |
 
 ---
 
@@ -118,7 +118,6 @@ Este documento describe la arquitectura completa del sistema **Distributed Fulls
 - Enrutamiento de peticiones a microservicios
 - Autenticación inicial y validación de JWT
 - Rate limiting y protección DDoS
-- Agregación de respuestas (si aplica)
 - Manejo de errores global
 - Logging centralizado
 
@@ -132,7 +131,6 @@ api-gateway/src/app/
 ├── filters/        # Filtros de excepciones
 ├── throttler/      # Configuración de rate limiting
 ├── rabbitmq/       # Conexión a RabbitMQ
-└── logging/        # Logging centralizado
 ```
 
 ### 3. User Service (NestJS + MongoDB)
@@ -148,9 +146,8 @@ api-gateway/src/app/
 **Responsabilidades:**
 - Registro de usuarios
 - Autenticación (login/logout)
-- Gestión de tokens de refresco
-- Perfil de usuario
-- Eliminación de cuenta (GDPR compliant)
+- Gestión de tokens de refresco 
+- Cacheo de feeds para rendimiento
 
 **Esquemas de Base de Datos:**
 ```typescript
@@ -189,7 +186,6 @@ api-gateway/src/app/
 - CRUD de posts
 - Búsqueda y filtrado
 - Sincronización con Comment Service vía RabbitMQ
-- Cacheo de feeds para rendimiento
 
 **Esquemas de Base de Datos:**
 ```typescript
@@ -224,9 +220,7 @@ api-gateway/src/app/
 
 **Responsabilidades:**
 - CRUD de comentarios
-- Sincronización con Post Service
-- Conteo de comentarios por post
-- Anonimización de comentarios
+- Sincronización con Post Service 
 
 **Esquemas de Base de Datos:**
 ```typescript
@@ -489,13 +483,13 @@ export class ThrottlerModule {}
 
 ### Estrategias de Escalado
 
-| Servicio | Estrategia | Métrica de Escalado |
-|----------|------------|---------------------|
-| API Gateway | Horizontal | CPU > 70%, Requests/sec |
-| User Service | Horizontal | Auth requests/sec |
-| Post Service | Horizontal + Cache | Read operations/sec |
-| Comment Service | Horizontal | Write operations/sec |
-| Frontend | CDN + Static | Traffic spikes |
+| Servicio        | Estrategia         | Métrica de Escalado     |
+|-----------------|--------------------|-------------------------|
+| API Gateway     | Horizontal         | CPU > 70%, Requests/sec |
+| User Service    | Horizontal         | Auth requests/sec       |
+| Post Service    | Horizontal + Cache | Read operations/sec     |
+| Comment Service | Horizontal         | Write operations/sec    |
+| Frontend        | CDN + Static       | Traffic spikes          |
 
 ---
 
@@ -641,43 +635,43 @@ distributed-fullstack-microservices/
 
 ### Backend (NestJS)
 
-| Dependencia | Versión | Propósito |
-|-------------|---------|-----------|
-| @nestjs/common | 11+ | Core framework |
-| @nestjs/core | 11+ | Core runtime |
-| @nestjs/mongoose | 11+ | Integración MongoDB |
-| @nestjs/jwt | 11+ | JWT authentication |
-| @nestjs/passport | 11+ | Passport strategies |
-| @nestjs/throttler | 6.5+ | Rate limiting |
-| @nestjs/cache-manager | 3+ | Caching |
-| @nestjs/microservices | 11+ | RabbitMQ integration |
-| mongoose | 9+ | ODM para MongoDB |
-| class-validator | 0.15+ | Validación de DTOs |
-| class-transformer | 0.5+ | Transformación de objetos |
-| bcrypt | 6+ | Hashing de contraseñas |
-| amqplib | 0.10+ | RabbitMQ client |
+| Dependencia           | Versión | Propósito                 |
+|-----------------------|---------|---------------------------|
+| @nestjs/common        | 11+     | Core framework            |
+| @nestjs/core          | 11+     | Core runtime              |
+| @nestjs/mongoose      | 11+     | Integración MongoDB       |
+| @nestjs/jwt           | 11+     | JWT authentication        |
+| @nestjs/passport      | 11+     | Passport strategies       |
+| @nestjs/throttler     | 6.5+    | Rate limiting             |
+| @nestjs/cache-manager | 3+      | Caching                   |
+| @nestjs/microservices | 11+     | RabbitMQ integration      |
+| mongoose              | 9+      | ODM para MongoDB          |
+| class-validator       | 0.15+   | Validación de DTOs        |
+| class-transformer     | 0.5+    | Transformación de objetos |
+| bcrypt                | 6+      | Hashing de contraseñas    |
+| amqplib               | 0.10+   | RabbitMQ client           |
 
 ### Frontend (Angular)
 
-| Dependencia | Versión | Propósito |
-|-------------|---------|-----------|
-| @angular/core | 21+ | Core framework |
-| @angular/common | 21+ | Common directives |
-| @angular/router | 21+ | Routing |
-| @angular/forms | 21+ | Reactive forms |
-| @angular/cdk | 21+ | Component Dev Kit |
-| rxjs | 7.8+ | Reactive programming |
-| tailwindcss | 4.2+ | Utility-first CSS |
+| Dependencia     | Versión | Propósito            |
+|-----------------|---------|----------------------|
+| @angular/core   | 21+     | Core framework       |
+| @angular/common | 21+     | Common directives    |
+| @angular/router | 21+     | Routing              |
+| @angular/forms  | 21+     | Reactive forms       |
+| @angular/cdk    | 21+     | Component Dev Kit    |
+| rxjs            | 7.8+    | Reactive programming |
+| tailwindcss     | 4.2+    | Utility-first CSS    |
 
 ### Infraestructura
 
-| Componente | Versión | Propósito |
-|------------|---------|-----------|
-| MongoDB | 7+ | Base de datos NoSQL |
-| RabbitMQ | Latest | Message broker |
-| Redis | Latest | Caché distribuido |
-| Docker | Latest | Contenerización |
-| Nx | 22.5+ | Build system |
+| Componente | Versión | Propósito           |
+|------------|---------|---------------------|
+| MongoDB    | 7+      | Base de datos NoSQL |
+| RabbitMQ   | Latest  | Message broker      |
+| Redis      | Latest  | Caché distribuido   |
+| Docker     | Latest  | Contenerización     |
+| Nx         | 22.5+   | Build system        |
 
 ---
 
@@ -851,15 +845,15 @@ spec:
 
 ### Naming Conventions
 
-| Elemento | Convención | Ejemplo |
-|----------|------------|---------|
-| Colecciones MongoDB | lowercase, plural | `users`, `posts`, `comments` |
-| Campos MongoDB | camelCase | `userId`, `createdAt` |
-| Endpoints REST | plural, lowercase | `/api/v1/posts` |
-| Archivos NestJS | kebab-case | `user.controller.ts` |
+| Elemento            | Convención                        | Ejemplo                                         |
+|---------------------|-----------------------------------|-------------------------------------------------|
+| Colecciones MongoDB | lowercase, plural                 | `users`, `posts`, `comments`                    |
+| Campos MongoDB      | camelCase                         | `userId`, `createdAt`                           |
+| Endpoints REST      | plural, lowercase                 | `/api/v1/posts`                                 |
+| Archivos NestJS     | kebab-case                        | `user.controller.ts`                            |
 | Componentes Angular | PascalCase class, kebab-case file | `PostCardComponent` en `post-card.component.ts` |
-| Funciones/Métodos | camelCase | `getUserById`, `createPost` |
-| Eventos RabbitMQ | `domain.action` | `post.created`, `user.deleted` |
+| Funciones/Métodos   | camelCase                         | `getUserById`, `createPost`                     |
+| Eventos RabbitMQ    | `domain.action`                   | `post.created`, `user.deleted`                  |
 
 ### Estructura de Respuestas API
 
@@ -893,14 +887,14 @@ spec:
 
 ### Decisiones Críticas
 
-| Decisión | Opción Seleccionada | Rationale |
-|----------|---------------------|-----------|
-| **Arquitectura** | Microservicios | Escalabilidad independiente, autonomía de equipos |
-| **Base de Datos** | MongoDB | Flexibilidad de esquema, rendimiento en lecturas |
-| **Comunicación** | REST + RabbitMQ | Balance entre simplicidad y desacoplamiento |
-| **Caché** | Redis | Alto rendimiento, estructuras de datos ricas |
-| **Auth** | JWT + Refresh tokens | Stateless, escalable, seguro |
-| **Frontend State** | Angular Signals | Reactividad fina, performance |
+| Decisión           | Opción Seleccionada  | Rationale                                         |
+|--------------------|----------------------|---------------------------------------------------|
+| **Arquitectura**   | Microservicios       | Escalabilidad independiente, autonomía de equipos |
+| **Base de Datos**  | MongoDB              | Flexibilidad de esquema, rendimiento en lecturas  |
+| **Comunicación**   | REST + RabbitMQ      | Balance entre simplicidad y desacoplamiento       |
+| **Caché**          | Redis                | Alto rendimiento, estructuras de datos ricas      |
+| **Auth**           | JWT + Refresh tokens | Stateless, escalable, seguro                      |
+| **Frontend State** | Angular Signals      | Reactividad fina, performance                     |
 
 ### Trade-offs Considerados
 
@@ -924,14 +918,14 @@ El proyecto incluye una suite completa de tests unitarios para validar la lógic
 
 ### Cobertura de Tests
 
-| Servicio | Tests | Estado | Archivo |
-|----------|-------|--------|---------|
-| `UsersService` | 14 | ✅ Passing | `user-service/src/app/users/users.service.spec.ts` |
-| `AuthService` | 11 (1 skipped) | ✅ Passing | `user-service/src/app/auth/auth.service.spec.ts` |
-| `PostsService` | 15 | ✅ Passing | `post-service/src/app/posts/posts.service.spec.ts` |
-| `CommentsService` | 14 | ✅ Passing | `comment-service/src/app/comments/comments.service.spec.ts` |
-| `AuthService` (API Gateway) | 4 | ✅ Passing | `api-gateway/src/app/auth/auth.service.spec.ts` |
-| `RabbitmqService` (API Gateway) | 8 | ✅ Passing | `api-gateway/src/app/rabbitmq/rabbitmq.service.spec.ts` |
+| Servicio                        | Tests          | Estado    | Archivo                                                     |
+|---------------------------------|----------------|-----------|-------------------------------------------------------------|
+| `UsersService`                  | 14             | ✅ Passing | `user-service/src/app/users/users.service.spec.ts`          |
+| `AuthService`                   | 11 (1 skipped) | ✅ Passing | `user-service/src/app/auth/auth.service.spec.ts`            |
+| `PostsService`                  | 15             | ✅ Passing | `post-service/src/app/posts/posts.service.spec.ts`          |
+| `CommentsService`               | 14             | ✅ Passing | `comment-service/src/app/comments/comments.service.spec.ts` |
+| `AuthService` (API Gateway)     | 4              | ✅ Passing | `api-gateway/src/app/auth/auth.service.spec.ts`             |
+| `RabbitmqService` (API Gateway) | 8              | ✅ Passing | `api-gateway/src/app/rabbitmq/rabbitmq.service.spec.ts`     |
 
 **Total: 66 tests (65 passing, 1 skipped)**
 
