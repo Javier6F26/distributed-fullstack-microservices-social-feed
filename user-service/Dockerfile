@@ -45,9 +45,9 @@ COPY --from=builder /app/user-service/dist ./
 # Copy pruned node_modules from builder stage
 COPY --from=builder /app/node_modules ./node_modules
 
-# Set environment variables
-ENV NODE_ENV=production
-ENV PORT=3001
+# Create non-root user for security
+RUN useradd -m -r -u 1001 appuser && chown -R appuser:appuser /app
+USER appuser
 
 # Expose port 3001
 EXPOSE 3001
