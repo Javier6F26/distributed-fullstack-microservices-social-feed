@@ -1,11 +1,29 @@
 @if (showModal()) {
-  <div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" (click)="closeModal()">
-    <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto" (click)="$event.stopPropagation()">
+  <div
+    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+    (click)="closeModal()"
+    (keydown.enter)="closeModal()"
+    (keydown.space)="closeModal()"
+    tabindex="-1"
+    aria-label="Close modal"
+  >
+    <div
+      class="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+      (click)="$event.stopPropagation()"
+      (keydown.enter)="$event.stopPropagation()"
+      (keydown.space)="$event.stopPropagation()"
+      tabindex="0"
+      role="dialog"
+      aria-label="Edit post modal"
+    >
       <!-- Header -->
       <div class="flex items-center justify-between p-6 border-b border-gray-200">
         <h2 class="text-xl font-semibold text-gray-900">Edit Post</h2>
         <button
+          type="button"
           (click)="closeModal()"
+          (keydown.enter)="closeModal()"
+          (keydown.space)="closeModal()"
           class="text-gray-400 hover:text-gray-600 transition-colors"
           aria-label="Close modal"
         >

@@ -280,9 +280,9 @@ describe('AuthService', () => {
       let refreshCallCount = 0;
 
       // Act - attempt multiple rapid refreshes
-      const sub1 = service.refreshToken().subscribe({ error: () => {} });
-      const sub2 = service.refreshToken().subscribe({ error: () => {} });
-      const sub3 = service.refreshToken().subscribe({ error: () => {} });
+      const sub1 = service.refreshToken().subscribe({ error: (err) => { void err; } });
+      const sub2 = service.refreshToken().subscribe({ error: (err) => { void err; } });
+      const sub3 = service.refreshToken().subscribe({ error: (err) => { void err; } });
 
       // Should only have one HTTP request
       const req = httpMock.expectOne('http://localhost:3000/api/v1/auth/refresh');

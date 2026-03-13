@@ -4,6 +4,7 @@ import type { Comment } from '../../../services/comment.service';
 import { AuthService } from '../../../services/auth.service';
 import { CommentService } from '../../../services/comment.service';
 import { NotificationService } from '../../../services/notification.service';
+import { PendingWritesNotifyService } from '../../../services/pending-writes-notify.service';
 import { interval, Subscription } from 'rxjs';
 
 /**
@@ -35,6 +36,7 @@ export class CommentCardComponent implements OnInit, OnChanges, OnDestroy {
   private authService = inject(AuthService);
   private commentService = inject(CommentService);
   private notificationService = inject(NotificationService);
+  private pendingWritesService = inject(PendingWritesNotifyService);
 
   // Update relative time every minute
   private timeUpdateSubscription?: Subscription;
@@ -207,5 +209,35 @@ export class CommentCardComponent implements OnInit, OnChanges, OnDestroy {
   onEditBodyInput(event: Event): void {
     const target = event.target as HTMLTextAreaElement;
     this.editBody.set(target.value);
+  }
+
+  /**
+   * Check if comment has a failed write (shows retry state)
+   */
+  isFailed(): boolean {
+    const tempId = this.comment.tempId || this.comment._id;
+    return this.pendingWritesService.hasError(tempId);
+  }
+
+  /**
+   * Get error message for a failed comment
+   */
+  getFailedError(): string | undefined {
+    const tempId = this.comment.tempId || this.comment._id;
+    return this.pendingWritesService.getError(tempId);
+  }
+
+  /**
+   * Handle retry for a failed comment
+   */
+  onRetry(): void {
+    const tempId = this.comment.tempId || this.comment._id;
+    
+    // Clear the error state
+    this.pendingWritesService.removeError(tempId);
+    
+    // Notify parent to handle retry (they'll need to re-submit the comment)
+    // In a full implementation, you'd emit an event for the parent to handle
+    this.notificationService.info('Please re-submit your comment', 3000);
   }
 }

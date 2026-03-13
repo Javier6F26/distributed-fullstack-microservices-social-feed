@@ -21,48 +21,5 @@
         </div>
       </div>
     </section>
-
-    <!-- Danger Zone Section -->
-    <section class="settings-section danger-zone">
-      <h2>
-        <span class="warning-icon">⚠️</span>
-        Danger Zone
-      </h2>
-      <div class="danger-card">
-        <h3>Delete Account</h3>
-        <p class="warning-text">
-          <strong>Warning:</strong> This action is irreversible. Once your account deletion is processed (within 72 hours), 
-          all your personal data will be permanently removed from our system.
-        </p>
-        <ul class="consequences-list">
-          <li>You will be logged out immediately</li>
-          <li>All your posts and comments will be anonymized</li>
-          <li>Your username and email will be permanently removed</li>
-          <li>You will receive a confirmation email</li>
-          <li>You have 72 hours to cancel the deletion request</li>
-        </ul>
-        <button
-          type="button"
-          class="delete-btn"
-          (click)="openDeleteDialog()"
-          [disabled]="isLoading"
-        >
-          @if (isLoading) {
-            <span class="loading-spinner"></span>
-            Processing...
-          } @else {
-            Delete My Account
-          }
-        </button>
-      </div>
-    </section>
   </div>
-
-  <!-- Deletion Confirmation Dialog -->
-  @if (showDeleteDialog) {
-    <app-deletion-confirmation
-      (confirmed)="onDeletionConfirmed()"
-      (cancelled)="closeDeleteDialog()"
-    />
-  }
 </div>

@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { AuthService } from '../../../services/auth.service';
 import { CommentService, Comment } from '../../../services/comment.service';
 import { NotificationService } from '../../../services/notification.service';
+import { PendingWritesNotifyService } from '../../../services/pending-writes-notify.service';
 
 /**
  * Comment Input Component
@@ -26,9 +27,10 @@ export class CommentInputComponent implements OnInit {
   private authService = inject(AuthService);
   private commentService = inject(CommentService);
   private notificationService = inject(NotificationService);
+  private pendingWritesService = inject(PendingWritesNotifyService);
 
   @Input() postId!: string;
-  @Output() commentSubmitted = new EventEmitter<{ comment: Comment; tempId: string }>();
+  @Output() commentSubmitted = new EventEmitter<{ comment: Comment; tempId: string; isUpdate?: boolean }>();
   @Output() commentFailed = new EventEmitter<{ tempId: string; postId: string }>();
 
   // Template reference
@@ -36,6 +38,7 @@ export class CommentInputComponent implements OnInit {
 
   // State
   isSubmitting = signal(false);
+  private currentTempId: string | null = null;
 
   // Form
   commentForm!: FormGroup;
@@ -108,6 +111,7 @@ export class CommentInputComponent implements OnInit {
 
     // Generate tempId for optimistic UI correlation
     const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    this.currentTempId = tempId;
 
     // Get current user info
     const user = this.authService.getCurrentUser();
@@ -137,7 +141,10 @@ export class CommentInputComponent implements OnInit {
       this.commentService.createComment(this.postId, body).subscribe({
         next: (response) => {
           if (response.success && response.data) {
-            this.notificationService.success('Comment added successfully');
+            // Start tracking pending write for confirmation
+            this.pendingWritesService.track(tempId);
+            // Emit the real comment data to replace the optimistic one
+            this.commentSubmitted.emit({ comment: response.data as unknown as Comment, tempId, isUpdate: true });
 
             // Clear input field on successful submission
             this.commentForm.reset();
@@ -175,6 +182,6 @@ export class CommentInputComponent implements OnInit {
    */
   private handleApiError(errorMessage: string) {
     this.notificationService.error(errorMessage);
-    this.commentFailed.emit({ tempId: this.commentForm.value.body ? `temp_${Date.now()}` : 'unknown', postId: this.postId });
+    this.commentFailed.emit({ tempId: this.currentTempId || 'unknown', postId: this.postId });
   }
 }

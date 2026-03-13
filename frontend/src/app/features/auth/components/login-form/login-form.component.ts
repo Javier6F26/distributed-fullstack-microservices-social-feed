@@ -84,13 +84,14 @@ export class LoginFormComponent {
     }).subscribe({
       next: () => {
         this.isLoading.set(false);
-        this.notificationService.success('Welcome back!', 3000);
         
-        // If there's a pending action (e.g., comment), emit it for completion
-        if (pendingActionCallback) {
-          this.loginSuccessWithPendingAction.emit(pendingActionCallback);
-        } else {
+        // Only show toast if there's no pending action (pending action will show its own toast)
+        if (!pendingActionCallback) {
+          this.notificationService.success('Welcome back!', 3000);
           this.loginSuccess.emit();
+        } else {
+          // Let the parent handle the toast for pending actions
+          this.loginSuccessWithPendingAction.emit(pendingActionCallback);
         }
       },
       error: (error) => {

@@ -19,6 +19,7 @@ import {
 } from '../../../services/post.service';
 import { NotificationService } from '../../../services/notification.service';
 import { AuthService } from '../../../services/auth.service';
+import { PendingWritesNotifyService } from '../../../services/pending-writes-notify.service';
 import { interval, Observable, Subscription } from 'rxjs';
 import { SearchBarComponent } from '../components/search-bar/search-bar.component';
 import { DateRangeFilterComponent } from '../components/date-range-filter/date-range-filter.component';
@@ -82,15 +83,43 @@ export class PostFeedComponent implements OnInit, OnDestroy {
   expandedComments = signal<Map<string, Comment[]>>(new Map());
   isLoadingComments = signal(false);
   isDeletingPost = signal<string | null>(null); // Track which post is being deleted
+  failedWrites = signal<Set<string>>(new Set()); // Track failed tempIds/postIds for retry state
+  private commentTempIds = new Set<string>(); // Track which tempIds are comments (vs posts)
+  private postTempIds = new Set<string>(); // Track which tempIds are posts (vs comments)
   // Inject services
   private postService = inject(PostService);
   private notificationService = inject(NotificationService);
+  private pendingWritesService = inject(PendingWritesNotifyService);
   private pollingSubscription?: Subscription;
   private relativeTimeSubscription?: Subscription;
+  private errorsSubscription?: Subscription;
+  private confirmedSubscription?: Subscription;
 
   ngOnInit(): void {
     this.loadPosts();
     this.startIntelligentPolling();
+    // Subscribe to pending write errors
+    this.errorsSubscription = this.pendingWritesService.errors$.subscribe((errors) => {
+      this.failedWrites.set(new Set(errors.map(e => e.tempId)));
+    });
+    // Subscribe to confirmations to clear pending flag and show success toast
+    this.confirmedSubscription = this.pendingWritesService.confirmed$.subscribe(({ tempId, postId }) => {
+      this.clearPendingFlag(tempId, postId);
+      // Show success toast only when write is confirmed (no error)
+      const hasError = this.pendingWritesService.hasError(tempId);
+      if (!hasError) {
+        // Determine if this was a comment or a post
+        const isComment = this.commentTempIds.has(tempId);
+        const isPost = this.postTempIds.has(tempId);
+        if (isComment) {
+          this.notificationService.success('Comment posted successfully', 2000);
+          this.commentTempIds.delete(tempId); // Clean up
+        } else if (isPost) {
+          this.notificationService.success('Post published successfully', 2000);
+          this.postTempIds.delete(tempId); // Clean up
+        }
+      }
+    });
     // Update relative times every minute
     this.relativeTimeSubscription = interval(60000).subscribe(() => {
       this.updatePostRelativeTimes();
@@ -106,6 +135,43 @@ export class PostFeedComponent implements OnInit, OnDestroy {
     if (this.relativeTimeSubscription) {
       this.relativeTimeSubscription.unsubscribe();
     }
+    if (this.errorsSubscription) {
+      this.errorsSubscription.unsubscribe();
+    }
+    if (this.confirmedSubscription) {
+      this.confirmedSubscription.unsubscribe();
+    }
+  }
+
+  /**
+   * Clear pending flag on a post or comment when confirmed
+   * Also replaces tempId-based _id with real postId when available
+   */
+  private clearPendingFlag(tempId: string, postId?: string): void {
+    // Clear pending flag on posts and replace _id if postId is provided
+    this.posts.update(posts =>
+      posts.map(post =>
+        post.tempId === tempId || post._id === tempId
+          ? { ...post, pending: false, _id: postId || post._id }
+          : post
+      )
+    );
+
+    // Clear pending flag on comments in expandedComments map
+    this.expandedComments.update(commentMap => {
+      const updatedMap = new Map(commentMap);
+      updatedMap.forEach((comments, postIdKey) => {
+        updatedMap.set(
+          postIdKey,
+          comments.map(comment =>
+            comment.tempId === tempId || comment._id === tempId
+              ? { ...comment, pending: false, _id: postId || comment._id }
+              : comment
+          )
+        );
+      });
+      return updatedMap;
+    });
   }
 
   /**
@@ -184,17 +250,15 @@ export class PostFeedComponent implements OnInit, OnDestroy {
 
     request$.subscribe({
       next: (response) => {
-        console.log('Posts response:', response);
         if (reset) {
           this.posts.set(response.data);
           this.filteredTotal.set(response.data.length);
-          console.log('Posts loaded:', response.data.length);
         } else {
           this.posts.update((posts) => [...posts, ...response.data]);
         }
         this.nextCursor.set(response.nextCursor);
         this.isLoading.set(false);
-        
+
         // Update relative times after posts are loaded
         this.updatePostRelativeTimes();
 
@@ -282,11 +346,9 @@ export class PostFeedComponent implements OnInit, OnDestroy {
 
     const cursor = this.nextCursor();
     if (!cursor) {
-      console.log('No cursor available, cannot fetch more');
       return;
     }
 
-    console.log('Fetching more posts with cursor:', cursor);
     this.isFetchingMore.set(true);
 
     const hasSearch = !!this.searchQuery().trim();
@@ -308,7 +370,6 @@ export class PostFeedComponent implements OnInit, OnDestroy {
 
     request$.subscribe({
       next: (response) => {
-        console.log('Fetched more posts:', response.data.length);
         this.posts.update((posts) => [...posts, ...response.data]);
         this.nextCursor.set(response.nextCursor);
         this.isFetchingMore.set(false);
@@ -320,39 +381,25 @@ export class PostFeedComponent implements OnInit, OnDestroy {
     });
   }
 
-  onCommentClick(): void {
+  onCommentClick(postId?: string): void {
     // Check if user is authenticated
     if (!this.authService.isAuthenticated()) {
       // Store pending comment action and show auth modal
-      // The comment text would come from the input field - for now we'll prompt
-      const commentText = prompt(
-        'Enter your comment (this will be submitted after authentication):',
-      );
-
-      if (commentText && commentText.trim()) {
-        // Get the first post ID for demo purposes (in real implementation, this would be the specific post)
-        const firstPostId = this.posts()[0]?._id;
-        if (firstPostId) {
-          this.pendingAction.set({
-            type: 'comment',
-            postId: firstPostId,
-            commentText: commentText.trim(),
-          });
-          this.showAuthModal.set(true);
-        } else {
-          this.notificationService.warning(
-            'No posts available to comment on',
-            3000,
-          );
-        }
+      if (postId) {
+        this.pendingAction.set({
+          type: 'comment',
+          postId,
+          commentText: '',
+        });
       }
+      this.showAuthModal.set(true);
       return;
     }
 
-    // User is authenticated - expand comments section for the first post
-    const firstPost = this.posts()[0];
-    if (firstPost && firstPost._id) {
-      this.onShowAllComments(firstPost);
+    // User is authenticated - expand comments section for the specific post
+    const post = this.posts().find(p => p._id === postId);
+    if (post) {
+      this.onShowAllComments(post);
     }
   }
 
@@ -366,16 +413,18 @@ export class PostFeedComponent implements OnInit, OnDestroy {
     const pending = this.pendingAction();
     if (pending && pending.type === 'comment') {
       this.notificationService.success(
-        'Authentication successful! Your comment is being posted...',
+        'Authentication successful! You can now add your comment.',
         3000,
       );
 
-      // In a real implementation, this would submit the comment
-      // For now, we'll just clear the pending action and show success
-      setTimeout(() => {
-        this.pendingAction.set(null);
-        this.notificationService.success('Comment posted successfully!', 3000);
-      }, 1000);
+      // Expand comments for the post so user can comment
+      const post = this.posts().find(p => p._id === pending.postId);
+      if (post) {
+        this.onShowAllComments(post);
+      }
+
+      // Clear pending action
+      this.pendingAction.set(null);
     }
   }
 
@@ -400,15 +449,30 @@ export class PostFeedComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Handle post creation - add optimistic post to feed
+   * Handle post creation - add optimistic post to feed or replace with real data
    */
-  onPostCreated(event: { post: Post; tempId: string }): void {
-    // Clear pending flag before adding to feed
-    event.post.pending = false;
+  onPostCreated(event: { post: Post; tempId: string; isUpdate?: boolean }): void {
+    // Track this tempId as a post (not a comment)
+    this.postTempIds.add(event.tempId);
 
-    // Add optimistic post to top of feed immediately
     const currentPosts = this.posts();
-    this.posts.set([event.post, ...currentPosts]);
+
+    if (event.isUpdate) {
+      // Replace optimistic post with real post data from API
+      // Preserve tempId for clearPendingFlag to work correctly
+      const updatedPosts = currentPosts.map(post =>
+        post.tempId === event.tempId
+          ? { ...event.post, pending: true, tempId: event.tempId } // Keep pending: true until confirmed, preserve tempId
+          : post
+      );
+      this.posts.set(updatedPosts);
+    } else {
+      // Keep pending: true until confirmed by backend
+      event.post.pending = true;
+
+      // Add optimistic post to top of feed immediately
+      this.posts.set([event.post, ...currentPosts]);
+    }
 
     // Close modal
     this.showCreatePostModal.set(false);
@@ -434,31 +498,46 @@ export class PostFeedComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Handle comment submission - add optimistic comment to list
+   * Handle comment submission - add optimistic comment to list or replace with real data
    */
-  onCommentSubmitted(event: { comment: Comment; tempId: string }): void {
+  onCommentSubmitted(event: { comment: Comment; tempId: string; isUpdate?: boolean }): void {
     const postId = event.comment.postId;
-    
+
+    // Track this tempId as a comment (not a post)
+    this.commentTempIds.add(event.tempId);
+
     // Find the post to get existing recentComments
     const post = this.posts().find(p => p._id === postId);
     const existingRecentComments = post?.recentComments || [];
-    
+
     // Check if comments are already expanded for this post
     const currentMap = this.expandedComments();
     const existingExpandedComments = currentMap.get(postId) || [];
-    
-    // Use expanded comments if they exist, otherwise use recentComments from the post
-    const baseComments = existingExpandedComments.length > 0 
-      ? existingExpandedComments 
-      : existingRecentComments;
-    
-    // Add optimistic comment at the top
-    this.expandedComments.set(
-      new Map(currentMap).set(postId, [event.comment, ...baseComments]),
-    );
 
-    // Show success notification
-    this.notificationService.success('Comment posted!', 2000);
+    // Use expanded comments if they exist, otherwise use recentComments from the post
+    const baseComments = existingExpandedComments.length > 0
+      ? existingExpandedComments
+      : existingRecentComments;
+
+    if (event.isUpdate) {
+      // Replace optimistic comment with real comment data from API
+      // Preserve tempId for clearPendingFlag to work correctly
+      const updatedComments = baseComments.map(comment =>
+        comment.tempId === event.tempId
+          ? { ...event.comment, pending: true, tempId: event.tempId } // Keep pending: true until confirmed, preserve tempId
+          : comment
+      );
+      this.expandedComments.set(
+        new Map(currentMap).set(postId, updatedComments),
+      );
+    } else {
+      // Add optimistic comment at the top
+      this.expandedComments.set(
+        new Map(currentMap).set(postId, [event.comment, ...baseComments]),
+      );
+    }
+
+    // No toast here - will show when write is confirmed via polling
   }
 
   /**
@@ -725,5 +804,48 @@ export class PostFeedComponent implements OnInit, OnDestroy {
         this.notificationService.error('Failed to delete post. Please try again.');
       },
     });
+  }
+
+  /**
+   * Check if a post has a failed write (shows retry state)
+   */
+  hasFailedWrite(post: Post): boolean {
+    const tempId = post.tempId || post._id;
+    return this.failedWrites().has(tempId);
+  }
+
+  /**
+   * Get error message for a failed post
+   */
+  getFailedWriteError(post: Post): string | undefined {
+    const tempId = post.tempId || post._id;
+    return this.pendingWritesService.getError(tempId);
+  }
+
+  /**
+   * Handle retry for a failed post
+   */
+  onRetryPost(post: Post): void {
+    const tempId = post.tempId || post._id;
+    
+    // Clear the error state
+    this.pendingWritesService.removeError(tempId);
+    this.failedWrites.update(set => {
+      const newSet = new Set(set);
+      newSet.delete(tempId);
+      return newSet;
+    });
+
+    // Re-open edit modal for retry (for edits) or create modal (for creates)
+    if (post.tempId) {
+      // This was a create operation - re-submit create
+      this.openCreatePostModal();
+      // Note: In a full implementation, you'd pre-fill the modal with the post data
+      this.notificationService.info('Please re-submit your post', 3000);
+    } else {
+      // This was an update operation - re-open edit modal
+      this.postToEdit.set(post);
+      this.showEditPostModal.set(true);
+    }
   }
 }

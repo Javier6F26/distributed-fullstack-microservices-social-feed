@@ -15,8 +15,8 @@ import { CommonModule } from '@angular/common';
   styleUrls: ['./delete-confirmation-dialog.component.scss'],
 })
 export class DeleteConfirmationDialogComponent {
-  @Input() message: string = 'Are you sure you want to delete this? This action cannot be undone.';
-  @Input() title: string = 'Confirm Delete';
+  @Input() message = 'Are you sure you want to delete this? This action cannot be undone.';
+  @Input() title = 'Confirm Delete';
 
   // Note: This component is not currently used - using native confirm() instead
   // To use this component, implement a custom modal service without ng-bootstrap

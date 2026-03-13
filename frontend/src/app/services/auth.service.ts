@@ -178,29 +178,6 @@ export class AuthService {
   }
 
   /**
-   * Request account deletion
-   */
-  requestAccountDeletion(): Observable<unknown> {
-    this.stopProactiveRefresh();
-
-    return this.http.delete(`${this.API_URL}/account`, {
-      withCredentials: true,
-    }).pipe(
-      tap(() => {
-        this.clearAuthState();
-        // Broadcast logout to other tabs
-        this.broadcastLogoutEvent();
-      }),
-      catchError((error) => {
-        // Clear state even if deletion fails
-        this.clearAuthState();
-        this.broadcastLogoutEvent();
-        return throwError(() => error);
-      }),
-    );
-  }
-
-  /**
    * Broadcast logout event to other tabs
    */
   private broadcastLogoutEvent(): void {

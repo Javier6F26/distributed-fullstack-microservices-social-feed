@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { PostService, Post } from '../../../services/post.service';
 import { NotificationService } from '../../../services/notification.service';
 import { AuthService } from '../../../services/auth.service';
+import { PendingWritesNotifyService } from '../../../services/pending-writes-notify.service';
 import { Subject } from 'rxjs';
 
 /**
@@ -27,6 +28,7 @@ export class EditPostModalComponent implements OnInit, OnChanges, OnDestroy {
   private postService = inject(PostService);
   private notificationService = inject(NotificationService);
   private authService = inject(AuthService);
+  private pendingWritesService = inject(PendingWritesNotifyService);
   private destroy$ = new Subject<void>();
 
   @Input() post!: Post;
@@ -145,6 +147,8 @@ export class EditPostModalComponent implements OnInit, OnChanges, OnDestroy {
       this.postService.updatePost(postId, title, body).subscribe({
         next: (response) => {
           if (response?.success) {
+            // Start tracking pending write for confirmation (using postId as key)
+            this.pendingWritesService.track(postId);
             this.notificationService.success('Post updated successfully!', 3000);
             this.closeModal();
           } else {

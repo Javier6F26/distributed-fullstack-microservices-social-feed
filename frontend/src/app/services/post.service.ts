@@ -34,6 +34,7 @@ export interface CreatePostResponse {
   success: boolean;
   message?: string;
   data?: {
+    _id?: string;
     tempId?: string;
     userId: string;
     authorId?: string;

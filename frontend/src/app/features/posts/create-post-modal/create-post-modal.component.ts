@@ -4,6 +4,7 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { PostService, Post } from '../../../services/post.service';
 import { NotificationService } from '../../../services/notification.service';
 import { AuthService } from '../../../services/auth.service';
+import { PendingWritesNotifyService } from '../../../services/pending-writes-notify.service';
 import { Subject } from 'rxjs';
 
 /**
@@ -27,9 +28,10 @@ export class CreatePostModalComponent implements OnDestroy {
   private postService = inject(PostService);
   private notificationService = inject(NotificationService);
   private authService = inject(AuthService);
+  private pendingWritesService = inject(PendingWritesNotifyService);
   private destroy$ = new Subject<void>();
 
-  @Output() postCreated = new EventEmitter<{ post: Post; tempId: string }>();
+  @Output() postCreated = new EventEmitter<{ post: Post; tempId: string; isUpdate?: boolean }>();
   @Output() postFailed = new EventEmitter<{ tempId: string }>();
   @Output() modalClosed = new EventEmitter<void>();
 
@@ -109,12 +111,18 @@ export class CreatePostModalComponent implements OnDestroy {
     // Generate tempId for optimistic UI correlation
     const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+    // Get current user info
+    const user = this.authService.getCurrentUser();
+
     // Create optimistic post for immediate display
     const optimisticPost = {
+      _id: tempId, // Use tempId as _id until real ID is assigned
       tempId,
+      authorId: user?._id || '',
+      author: user?.username || 'You',
       title,
       content: body,
-      author: 'You',
+      body: body, // Also include body for Post interface compatibility
       createdAt: new Date().toISOString(),
       pending: true, // Mark as pending sync
       commentCount: 0,
@@ -131,8 +139,12 @@ export class CreatePostModalComponent implements OnDestroy {
       // Fire-and-forget API call - handle success/error in subscription
       this.postService.createPost(title, body).subscribe({
         next: (response) => {
-          if (response?.success) {
-            this.notificationService.success('Post published successfully!', 3000);
+          if (response?.success && response.data) {
+            // Start tracking pending write for confirmation
+            this.pendingWritesService.track(tempId);
+            // Emit the real post data to replace the optimistic one
+            // Type assertion needed because API response may not include all Post fields
+            this.postCreated.emit({ post: response.data as unknown as Post, tempId, isUpdate: true });
             this.closeModal();
           } else {
             // Handle unexpected response
