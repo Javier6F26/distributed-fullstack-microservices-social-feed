@@ -16,7 +16,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const openapiToPostman = require('openapi-to-postmanv2');
+const { SchemaPack } = require('openapi-to-postmanv2');
 
 const OPENAPI_DIR = path.join(__dirname, '..', 'docs', 'openapi');
 const POSTMAN_DIR = path.join(__dirname, '..', 'docs', 'postman');
@@ -36,51 +36,33 @@ if (!fs.existsSync(POSTMAN_DIR)) {
 /**
  * Convert OpenAPI spec to Postman collection
  */
-function convertToPostman(openApiPath, serviceName) {
+function convertToPostman(openApiSpec, serviceName) {
   return new Promise((resolve, reject) => {
     console.log(`Converting ${serviceName} to Postman collection...`);
-    
-    if (!fs.existsSync(openApiPath)) {
-      reject(new Error(`OpenAPI spec not found at ${openApiPath}`));
-      return;
-    }
 
-    const openApiSpec = JSON.parse(fs.readFileSync(openApiPath, 'utf8'));
-
-    const conversionOptions = {
-      type: 'json',
-      components: {
-        securitySchemes: {
-          bearerAuth: {
-            type: 'apiKey',
-            name: 'Authorization',
-            in: 'header',
-            value: 'Bearer {{accessToken}}'
-          }
-        }
-      },
-      variables: {
-        baseUrl: {
-          type: 'string',
-          value: serviceName === 'api-gateway' 
-            ? 'http://localhost:3000/api/v1'
-            : `http://localhost:${serviceName === 'user-service' ? '3001' : serviceName === 'post-service' ? '3002' : '3003'}`
-        }
+    const pack = new SchemaPack(
+      { type: 'json', data: openApiSpec },
+      {
+        requestParametersResolution: 'Example',
+        exampleParametersResolution: 'Example',
+        requestBodyOptions: {
+          enableOptionalParameters: true,
+        },
       }
-    };
+    );
 
-    openapiToPostman.convert(openApiSpec, conversionOptions, (err, status) => {
+    pack.convert((err, result) => {
       if (err) {
         reject(err);
         return;
       }
-      
-      if (!status.result) {
-        reject(new Error(status.reason || 'Conversion failed'));
+
+      if (!result.result) {
+        reject(new Error('Conversion failed'));
         return;
       }
-      
-      resolve(status.output[0].data);
+
+      resolve(result.output[0].data);
     });
   });
 }
@@ -230,7 +212,8 @@ async function main() {
     }
 
     try {
-      const postmanCollection = await convertToPostman(openApiPath, service.name);
+      const openApiSpec = JSON.parse(fs.readFileSync(openApiPath, 'utf8'));
+      const postmanCollection = await convertToPostman(openApiSpec, service.name);
       savePostmanCollection(service.name, postmanCollection);
       collections.push({ name: service.name, collection: postmanCollection });
     } catch (error) {
